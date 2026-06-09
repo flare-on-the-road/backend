@@ -147,10 +147,12 @@ def _get_kakao_profile(code):
         "code": code,
     }
 
-    if (
+    use_client_secret = (
         current_app.config.get("KAKAO_CLIENT_SECRET_ENABLED")
         and current_app.config.get("KAKAO_CLIENT_SECRET")
-    ):
+    )
+
+    if use_client_secret:
         token_data["client_secret"] = current_app.config["KAKAO_CLIENT_SECRET"]
 
     token_res = requests.post(
@@ -158,7 +160,20 @@ def _get_kakao_profile(code):
         data=token_data,
         timeout=10,
     )
-    token_res.raise_for_status()
+
+    if (
+        token_res.status_code == 401
+        and not use_client_secret
+        and current_app.config.get("KAKAO_CLIENT_SECRET")
+    ):
+        token_data["client_secret"] = current_app.config["KAKAO_CLIENT_SECRET"]
+        token_res = requests.post(
+            "https://kauth.kakao.com/oauth/token",
+            data=token_data,
+            timeout=10,
+        )
+
+    _raise_oauth_error(token_res, "Kakao token")
 
     access_token = token_res.json()["access_token"]
 
@@ -167,7 +182,7 @@ def _get_kakao_profile(code):
         headers={"Authorization": f"Bearer {access_token}"},
         timeout=10,
     )
-    profile_res.raise_for_status()
+    _raise_oauth_error(profile_res, "Kakao profile")
 
     data = profile_res.json()
     kakao_account = data.get("kakao_account", {})
@@ -180,3 +195,11 @@ def _get_kakao_profile(code):
         "email": email,
         "name": profile.get("nickname") or email.split("@")[0],
     }
+
+
+def _raise_oauth_error(response, label):
+    try:
+        response.raise_for_status()
+    except requests.HTTPError as exc:
+        detail = response.text[:500]
+        raise ValueError(f"{label} 요청 실패: {response.status_code} {detail}") from exc
