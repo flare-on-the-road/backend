@@ -284,5 +284,11 @@ def oauth_callback(provider):
 
         return redirect(f"{current_app.config['FRONTEND_URL']}/oauth/callback?{query}")
 
-    except Exception:
-        return redirect(f"{current_app.config['FRONTEND_URL']}/login?error=oauth_failed")
+    except Exception as e:
+        current_app.logger.exception("OAuth callback failed: provider=%s", provider)
+        query = urlencode({
+            "error": "oauth_failed",
+            "provider": provider,
+            "reason": str(e),
+        })
+        return redirect(f"{current_app.config['FRONTEND_URL']}/login?{query}")

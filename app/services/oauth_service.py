@@ -1,6 +1,7 @@
 import secrets
 import requests
 from flask import current_app
+from urllib.parse import urlencode
 from app.common.constants import UserRole, AuthProvider
 from app.repositories import user_repository
 from app.services.auth_service import create_token_pair
@@ -10,32 +11,32 @@ def get_oauth_login_url(provider):
     state = secrets.token_urlsafe(16)
 
     if provider == "google":
-        return (
-            "https://accounts.google.com/o/oauth2/v2/auth"
-            f"?client_id={current_app.config['GOOGLE_CLIENT_ID']}"
-            f"&redirect_uri={current_app.config['GOOGLE_REDIRECT_URI']}"
-            "&response_type=code"
-            "&scope=openid%20email%20profile"
-            f"&state={state}"
-        )
+        query = urlencode({
+            "client_id": current_app.config["GOOGLE_CLIENT_ID"],
+            "redirect_uri": current_app.config["GOOGLE_REDIRECT_URI"],
+            "response_type": "code",
+            "scope": "openid email profile",
+            "state": state,
+        })
+        return f"https://accounts.google.com/o/oauth2/v2/auth?{query}"
 
     if provider == "naver":
-        return (
-            "https://nid.naver.com/oauth2.0/authorize"
-            f"?client_id={current_app.config['NAVER_CLIENT_ID']}"
-            f"&redirect_uri={current_app.config['NAVER_REDIRECT_URI']}"
-            "&response_type=code"
-            f"&state={state}"
-        )
+        query = urlencode({
+            "client_id": current_app.config["NAVER_CLIENT_ID"],
+            "redirect_uri": current_app.config["NAVER_REDIRECT_URI"],
+            "response_type": "code",
+            "state": state,
+        })
+        return f"https://nid.naver.com/oauth2.0/authorize?{query}"
 
     if provider == "kakao":
-        return (
-            "https://kauth.kakao.com/oauth/authorize"
-            f"?client_id={current_app.config['KAKAO_CLIENT_ID']}"
-            f"&redirect_uri={current_app.config['KAKAO_REDIRECT_URI']}"
-            "&response_type=code"
-            f"&state={state}"
-        )
+        query = urlencode({
+            "client_id": current_app.config["KAKAO_CLIENT_ID"],
+            "redirect_uri": current_app.config["KAKAO_REDIRECT_URI"],
+            "response_type": "code",
+            "state": state,
+        })
+        return f"https://kauth.kakao.com/oauth/authorize?{query}"
 
     raise ValueError("지원하지 않는 OAuth provider입니다.")
 
@@ -146,7 +147,10 @@ def _get_kakao_profile(code):
         "code": code,
     }
 
-    if current_app.config.get("KAKAO_CLIENT_SECRET"):
+    if (
+        current_app.config.get("KAKAO_CLIENT_SECRET_ENABLED")
+        and current_app.config.get("KAKAO_CLIENT_SECRET")
+    ):
         token_data["client_secret"] = current_app.config["KAKAO_CLIENT_SECRET"]
 
     token_res = requests.post(

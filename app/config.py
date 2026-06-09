@@ -46,6 +46,9 @@ class Config:
     # Kakao OAuth 설정
     KAKAO_CLIENT_ID = os.getenv("KAKAO_CLIENT_ID")
     KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
+    KAKAO_CLIENT_SECRET_ENABLED = (
+        os.getenv("KAKAO_CLIENT_SECRET_ENABLED", "false").lower() == "true"
+    )
     KAKAO_REDIRECT_URI = os.getenv("KAKAO_REDIRECT_URI")
 
     ITS_API_KEY = os.getenv("ITS_API_KEY")
