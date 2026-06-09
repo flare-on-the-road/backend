@@ -10,6 +10,23 @@ def find_by_email(email):
     return User.query.filter_by(email=email).first()
 
 
+def find_by_name_and_phone(name, phone):
+    return User.query.filter_by(
+        name=name,
+        phone=phone,
+        is_active=True,
+    ).all()
+
+
+def find_by_email_name_and_phone(email, name, phone):
+    return User.query.filter_by(
+        email=email,
+        name=name,
+        phone=phone,
+        is_active=True,
+    ).first()
+
+
 def find_by_provider(provider, provider_user_id):
     return User.query.filter_by(
         provider=provider,

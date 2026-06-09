@@ -1,4 +1,6 @@
 import os
+import certifi
+import ssl
 from datetime import timedelta
 from dotenv import load_dotenv
 
@@ -18,6 +20,15 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "connect_args": {
+            "ssl_ca": "/etc/ssl/cert.pem",
+            "ssl_verify_cert": True,
+            "ssl_verify_identity": True,
+        },
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
 
     FRONTEND_URL = os.getenv("FRONTEND_URL","http://localhost:3000")
     CORS_ORIGINS = os.getenv("CORS_ORIGINS","http://localhost:3000")

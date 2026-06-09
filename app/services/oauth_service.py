@@ -3,7 +3,7 @@ import requests
 from flask import current_app
 from app.common.constants import UserRole, AuthProvider
 from app.repositories import user_repository
-from app.services.auth_service import create_token
+from app.services.auth_service import create_token_pair
 
 
 def get_oauth_login_url(provider):
@@ -40,11 +40,11 @@ def get_oauth_login_url(provider):
     raise ValueError("지원하지 않는 OAuth provider입니다.")
 
 
-def handle_oauth_callback(provider, code):
+def handle_oauth_callback(provider, code, state=None):
     if provider == "google":
         profile = _get_google_profile(code)
     elif provider == "naver":
-        profile = _get_naver_profile(code)
+        profile = _get_naver_profile(code, state)
     elif provider == "kakao":
         profile = _get_kakao_profile(code)
     else:
@@ -69,10 +69,7 @@ def handle_oauth_callback(provider, code):
         user.provider_user_id = profile["providerUserId"]
         user_repository.save(user)
 
-    return {
-        "accessToken": create_token(user),
-        "user": user.to_dict(),
-    }
+    return create_token_pair(user)
 
 
 def _get_google_profile(code):
@@ -106,7 +103,10 @@ def _get_google_profile(code):
     }
 
 
-def _get_naver_profile(code):
+def _get_naver_profile(code, state):
+    if not state:
+        raise ValueError("Naver OAuth state가 누락되었습니다.")
+
     token_res = requests.get(
         "https://nid.naver.com/oauth2.0/token",
         params={
@@ -114,7 +114,7 @@ def _get_naver_profile(code):
             "client_id": current_app.config["NAVER_CLIENT_ID"],
             "client_secret": current_app.config["NAVER_CLIENT_SECRET"],
             "code": code,
-            "state": "state",
+            "state": state,
         },
         timeout=10,
     )

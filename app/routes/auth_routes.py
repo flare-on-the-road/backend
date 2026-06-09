@@ -4,7 +4,7 @@ from flask import Blueprint, request, redirect, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.common.response import success, fail
-from app.services import auth_service, oauth_service
+from app.services import account_recovery_service, auth_service, oauth_service
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -106,6 +106,35 @@ def login():
         return success(result, "로그인 성공")
     except Exception as e:
         return fail(str(e), 401)
+
+
+@auth_bp.post("/find-id")
+def find_id():
+    body = request.get_json() or {}
+
+    try:
+        result = account_recovery_service.find_user_emails(
+            name=body.get("name"),
+            phone=body.get("phone"),
+        )
+        return success(result, "아이디 찾기 성공")
+    except Exception as e:
+        return fail(str(e), 400)
+
+
+@auth_bp.post("/forgot-password")
+def forgot_password():
+    body = request.get_json() or {}
+
+    try:
+        result = account_recovery_service.reset_password(
+            email=body.get("email"),
+            name=body.get("name"),
+            phone=body.get("phone"),
+        )
+        return success(result, "임시 비밀번호 발급 성공")
+    except Exception as e:
+        return fail(str(e), 400)
 
 
 @auth_bp.get("/me")
@@ -240,12 +269,13 @@ def oauth_callback(provider):
         description: 프론트엔드 OAuth callback 페이지로 이동
     """
     code = request.args.get("code")
+    state = request.args.get("state")
 
     if not code:
         return redirect(f"{current_app.config['FRONTEND_URL']}/login?error=oauth_no_code")
 
     try:
-        result = oauth_service.handle_oauth_callback(provider, code)
+        result = oauth_service.handle_oauth_callback(provider, code, state)
 
         query = urlencode({
             "accessToken": result["accessToken"],
