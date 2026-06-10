@@ -69,11 +69,6 @@ class Config:
     ITS_API_KEY = os.getenv("ITS_API_KEY")
     ITS_CCTV_API_URL = os.getenv("ITS_CCTV_API_URL")
 
-
-class TestConfig(Config):
-    TESTING = True
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
-    SQLALCHEMY_ENGINE_OPTIONS = {}
     CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
     CF_R2_ACCESS_KEY_ID = (
         os.getenv("CF_R2_ACCESS_KEY_ID")
@@ -89,3 +84,9 @@ class TestConfig(Config):
     CF_R2_PUBLIC_URL = os.getenv("CF_R2_PUBLIC_URL")
     CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL")
     MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+
+
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}
