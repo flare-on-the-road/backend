@@ -25,9 +25,11 @@ class Config:
 
     if OS_NAME == "Windows":
         SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
             "connect_args": {
                 "ssl": {"ca": certifi.where()}
-            }
+            },
         }
 
     if OS_NAME == "Darwin":  # macOS

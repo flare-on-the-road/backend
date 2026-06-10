@@ -91,3 +91,31 @@ def get_current_user(user_id):
         raise ValueError("사용자를 찾을 수 없습니다.")
 
     return user.to_dict()
+
+
+def update_current_user(user_id, name=None, department=None, phone=None):
+    user = user_repository.find_by_id(user_id)
+
+    if not user:
+        raise ValueError("사용자를 찾을 수 없습니다.")
+
+    if not user.is_active:
+        raise ValueError("비활성화된 계정입니다.")
+
+    if name is not None:
+        normalized_name = str(name).strip()
+
+        if not normalized_name:
+            raise ValueError("이름을 입력해주세요.")
+
+        user.name = normalized_name
+
+    if department is not None:
+        normalized_department = str(department).strip()
+        user.department = normalized_department or None
+
+    if phone is not None:
+        normalized_phone = str(phone).strip()
+        user.phone = normalized_phone or None
+
+    return user_repository.save(user).to_dict()
