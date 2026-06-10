@@ -4,6 +4,7 @@ from werkzeug.security import (
     generate_password_hash,
     check_password_hash,
 )
+from flask import url_for
 
 from app.extensions import db
 from app.common.constants import UserRole, AuthProvider
@@ -61,6 +62,12 @@ class User(db.Model):
         nullable=True,
     )
 
+    profile_image_file_id = db.Column(
+        db.Integer,
+        db.ForeignKey("files.id"),
+        nullable=True,
+    )
+
     is_active = db.Column(
         db.Boolean,
         nullable=False,
@@ -80,6 +87,18 @@ class User(db.Model):
         onupdate=datetime.utcnow,
     )
 
+    profile_image_file = db.relationship(
+        "File",
+        foreign_keys=[profile_image_file_id],
+        post_update=True,
+    )
+
+    owned_files = db.relationship(
+        "File",
+        foreign_keys="File.owner_user_id",
+        back_populates="owner",
+    )
+
     def set_password(self, password):
         if password:
             self.password_hash = generate_password_hash(password)
@@ -94,6 +113,18 @@ class User(db.Model):
         )
 
     def to_dict(self):
+        profile_image_url = None
+
+        if self.profile_image_file:
+            profile_image_url = self.profile_image_file.public_url
+
+            if not profile_image_url:
+                profile_image_url = url_for(
+                    "file.download_file",
+                    file_id=self.profile_image_file.id,
+                    _external=True,
+                )
+
         return {
             "id": str(self.id),
             "email": self.email,
@@ -102,6 +133,12 @@ class User(db.Model):
             "provider": self.provider,
             "department": self.department,
             "phone": self.phone,
+            "profileImageUrl": profile_image_url,
+            "profileImageFile": (
+                self.profile_image_file.to_dict()
+                if self.profile_image_file
+                else None
+            ),
             "isActive": self.is_active,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
             "lastLoginAt": None,

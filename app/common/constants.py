@@ -9,3 +9,13 @@ class AuthProvider:
     GOOGLE = "google"
     NAVER = "naver"
     KAKAO = "kakao"
+
+
+class FilePurpose:
+    PROFILE_IMAGE = "profile_image"
+    BOARD_ATTACHMENT = "board_attachment"
+
+
+class FileStatus:
+    ACTIVE = "active"
+    DELETED = "deleted"

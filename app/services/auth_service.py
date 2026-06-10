@@ -1,5 +1,6 @@
 from flask_jwt_extended import create_access_token, create_refresh_token
-from app.common.constants import UserRole, AuthProvider
+from app.common.constants import FilePurpose, FileStatus, UserRole, AuthProvider
+from app.common.uploads import ALLOWED_IMAGE_CONTENT_TYPES, UploadContext, upload_file
 from app.repositories import user_repository
 
 
@@ -93,7 +94,12 @@ def get_current_user(user_id):
     return user.to_dict()
 
 
-def update_current_user(user_id, name=None, department=None, phone=None):
+def update_current_user(
+    user_id,
+    name=None,
+    department=None,
+    phone=None,
+):
     user = user_repository.find_by_id(user_id)
 
     if not user:
@@ -117,5 +123,35 @@ def update_current_user(user_id, name=None, department=None, phone=None):
     if phone is not None:
         normalized_phone = str(phone).strip()
         user.phone = normalized_phone or None
+
+    return user_repository.save(user).to_dict()
+
+
+def update_current_user_profile_image(user_id, profile_image):
+    user = user_repository.find_by_id(user_id)
+
+    if not user:
+        raise ValueError("사용자를 찾을 수 없습니다.")
+
+    if not user.is_active:
+        raise ValueError("비활성화된 계정입니다.")
+
+    uploaded_file = upload_file(
+        profile_image,
+        UploadContext(
+            purpose=FilePurpose.PROFILE_IMAGE,
+            owner_user_id=user.id,
+            entity_type="user",
+            entity_id=user.id,
+            directory="profiles",
+            allowed_content_types=ALLOWED_IMAGE_CONTENT_TYPES,
+        ),
+    )
+
+    if user.profile_image_file:
+        user.profile_image_file.status = FileStatus.DELETED
+
+    user.profile_image_file_id = uploaded_file.id
+    user.profile_image_file = uploaded_file
 
     return user_repository.save(user).to_dict()
