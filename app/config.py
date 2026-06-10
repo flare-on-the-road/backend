@@ -1,11 +1,13 @@
+from pathlib import Path
 import os
 import certifi
+import platform
 import ssl
 from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
-
+OS_NAME = platform.system()
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
@@ -20,11 +22,26 @@ class Config:
 
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        "connect_args": {
-            "ssl": {"ca": certifi.where()}
+
+    if OS_NAME == "Windows":
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "connect_args": {
+                "ssl": {"ca": certifi.where()}
+            }
         }
-    }
+
+    if OS_NAME == "Darwin":  # macOS
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            "connect_args": {
+                "ssl_ca": "/etc/ssl/cert.pem",
+                "ssl_verify_cert": True,
+                "ssl_verify_identity": True,
+            },
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        }
+    
+    
 
     FRONTEND_URL = os.getenv("FRONTEND_URL","http://localhost:3000")
     CORS_ORIGINS = os.getenv("CORS_ORIGINS","http://localhost:3000")
