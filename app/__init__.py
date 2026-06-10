@@ -2,7 +2,7 @@ from flask import Flask
 from flask_jwt_extended import JWTManager
 from app.config import Config
 from app.extensions import db, cors, migrate, swagger
-from app.routes import health_bp, auth_bp
+from app.routes import health_bp, auth_bp, user_bp
 
 jwt = JWTManager()
 
@@ -60,6 +60,7 @@ def create_app():
     # FIXME : 이부분만 수정해주세요!
     app.register_blueprint(health_bp, url_prefix="/api/health")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(user_bp, url_prefix="/api/users")
     # app.register_blueprint(admin_bp, url_prefix="/api/admin")
     # app.register_blueprint(cctv_bp, url_prefix="/api/cctv")
     # app.register_blueprint(event_bp, url_prefix="/api/events")
