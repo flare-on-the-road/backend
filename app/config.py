@@ -68,3 +68,19 @@ class Config:
 
     ITS_API_KEY = os.getenv("ITS_API_KEY")
     ITS_CCTV_API_URL = os.getenv("ITS_CCTV_API_URL")
+
+    CF_ACCOUNT_ID = os.getenv("CF_ACCOUNT_ID")
+    CF_R2_ACCESS_KEY_ID = (
+        os.getenv("CF_R2_ACCESS_KEY_ID")
+        or os.getenv("CF_ACCESS_KEY_ID")
+        or os.getenv("CF_ACCESS_KEY")
+    )
+    CF_R2_SECRET_ACCESS_KEY = (
+        os.getenv("CF_R2_SECRET_ACCESS_KEY")
+        or os.getenv("CF_SECRET_ACCESS_KEY")
+        or os.getenv("CF_SECRET_KEY")
+    )
+    CF_R2_BUCKET_NAME = os.getenv("CF_R2_BUCKET_NAME") or os.getenv("CF_BUCKET_NAME")
+    CF_R2_PUBLIC_URL = os.getenv("CF_R2_PUBLIC_URL")
+    CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL")
+    MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 10 * 1024 * 1024))

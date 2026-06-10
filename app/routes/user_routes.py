@@ -7,6 +7,10 @@ from app.services import auth_service
 user_bp = Blueprint("user", __name__)
 
 
+def _error_message(error):
+    return str(error) or type(error).__name__
+
+
 @user_bp.get("/me")
 @jwt_required()
 def get_my_profile():
@@ -29,7 +33,7 @@ def get_my_profile():
         user = auth_service.get_current_user(get_jwt_identity())
         return success(user, "내 프로필 조회 성공")
     except Exception as e:
-        return fail(str(e), 404)
+        return fail(_error_message(e), 404)
 
 
 @user_bp.patch("/me")
@@ -68,7 +72,7 @@ def update_my_profile():
       404:
         description: 사용자 정보 없음
     """
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
 
     try:
         user = auth_service.update_current_user(
@@ -79,6 +83,51 @@ def update_my_profile():
         )
         return success(user, "내 프로필 수정 성공")
     except ValueError as e:
-        return fail(str(e), 400)
+        return fail(_error_message(e), 400)
     except Exception as e:
-        return fail(str(e), 404)
+        return fail(_error_message(e), 404)
+
+
+@user_bp.post("/me/profile-image")
+@jwt_required()
+def update_my_profile_image():
+    """
+    내 프로필 이미지 수정 API
+    ---
+    tags:
+      - Users
+    summary: 내 프로필 이미지 수정
+    description: multipart/form-data로 전달된 profileImage 파일을 업로드하고 현재 사용자의 프로필 이미지로 지정합니다.
+    security:
+      - Bearer: []
+    consumes:
+      - multipart/form-data
+    parameters:
+      - in: formData
+        name: profileImage
+        type: file
+        required: true
+        description: 프로필 이미지 파일
+    responses:
+      200:
+        description: 내 프로필 이미지 수정 성공
+      400:
+        description: 잘못된 요청
+      404:
+        description: 사용자 정보 없음
+    """
+    profile_image = request.files.get("profileImage")
+
+    if not profile_image:
+        return fail("프로필 이미지를 선택해주세요.", 400)
+
+    try:
+        user = auth_service.update_current_user_profile_image(
+            user_id=get_jwt_identity(),
+            profile_image=profile_image,
+        )
+        return success(user, "내 프로필 이미지 수정 성공")
+    except ValueError as e:
+        return fail(_error_message(e), 400)
+    except Exception as e:
+        return fail(_error_message(e), 400)
