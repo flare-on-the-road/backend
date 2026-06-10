@@ -22,12 +22,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "connect_args": {
-            "ssl_ca": "/etc/ssl/cert.pem",
-            "ssl_verify_cert": True,
-            "ssl_verify_identity": True,
-        },
-        "pool_pre_ping": True,
-        "pool_recycle": 300,
+            "ssl": {"ca": certifi.where()}
+        }
     }
 
     FRONTEND_URL = os.getenv("FRONTEND_URL","http://localhost:3000")
