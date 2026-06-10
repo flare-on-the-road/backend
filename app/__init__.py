@@ -1,19 +1,33 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_jwt_extended import JWTManager
 from app.config import Config
 from app.extensions import db, cors, migrate, swagger
-from app.routes import health_bp, auth_bp
+from app.common.errors import register_error_handlers
+from app.routes import health_bp, auth_bp, post_bp, comment_bp
 
 jwt = JWTManager()
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
 
     db.init_app(app)
     migrate.init_app(app, db)
 
     jwt.init_app(app)
+    register_error_handlers(app)
+
+    @jwt.unauthorized_loader
+    def handle_missing_token(reason):
+        return jsonify({"error": {"code": "AUTH_REQUIRED", "message": "인증이 필요합니다."}}), 401
+
+    @jwt.invalid_token_loader
+    def handle_invalid_token(reason):
+        return jsonify({"error": {"code": "AUTH_REQUIRED", "message": "유효하지 않은 토큰입니다."}}), 401
+
+    @jwt.expired_token_loader
+    def handle_expired_token(jwt_header, jwt_payload):
+        return jsonify({"error": {"code": "AUTH_REQUIRED", "message": "토큰이 만료되었습니다."}}), 401
 
     cors.init_app(
         app,
@@ -60,6 +74,8 @@ def create_app():
     # FIXME : 이부분만 수정해주세요!
     app.register_blueprint(health_bp, url_prefix="/api/health")
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    app.register_blueprint(post_bp, url_prefix="/api/posts")
+    app.register_blueprint(comment_bp, url_prefix="/api")
     # app.register_blueprint(admin_bp, url_prefix="/api/admin")
     # app.register_blueprint(cctv_bp, url_prefix="/api/cctv")
     # app.register_blueprint(event_bp, url_prefix="/api/events")

@@ -66,3 +66,9 @@ class Config:
 
     ITS_API_KEY = os.getenv("ITS_API_KEY")
     ITS_CCTV_API_URL = os.getenv("ITS_CCTV_API_URL")
+
+
+class TestConfig(Config):
+    TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    SQLALCHEMY_ENGINE_OPTIONS = {}
