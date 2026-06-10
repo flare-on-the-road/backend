@@ -25,9 +25,14 @@ class Config:
 
     if OS_NAME == "Windows":
         SQLALCHEMY_ENGINE_OPTIONS = {
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
             "connect_args": {
+                "connect_timeout": 10,
+                "read_timeout": 30,
+                "write_timeout": 30,
                 "ssl": {"ca": certifi.where()}
-            }
+            },
         }
 
     if OS_NAME == "Darwin":  # macOS
