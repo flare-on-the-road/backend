@@ -19,3 +19,11 @@ class FilePurpose:
 class FileStatus:
     ACTIVE = "active"
     DELETED = "deleted"
+
+
+class PostBoardType:
+    BUG = "bug"
+    NOTICE = "notice"
+    INQUIRY = "inquiry"
+
+    ALL = (BUG, NOTICE, INQUIRY)

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required
 
+from app.common.constants import PostBoardType
 from app.common.decorators import get_current_role, get_current_user_id
 from app.services import post_like_service, post_service
 
@@ -37,6 +38,11 @@ def list_posts():
         type: string
         enum: [title, content, title_content, author]
         default: title
+      - in: query
+        name: board_type
+        type: string
+        enum: [bug, notice, inquiry]
+        default: bug
     responses:
       200:
         description: 게시글 목록
@@ -50,8 +56,11 @@ def list_posts():
     size = request.args.get("size", default=10, type=int)
     keyword = request.args.get("keyword")
     search_type = request.args.get("search_type")
+    board_type = request.args.get("board_type", default=PostBoardType.BUG)
 
-    result = post_service.list_posts(user_id, role, page, size, keyword, search_type)
+    result = post_service.list_posts(
+        user_id, role, page, size, keyword, search_type, board_type
+    )
     return jsonify(result)
 
 
@@ -113,16 +122,26 @@ def create_post():
             content:
               type: string
               example: 재현 경로 ...
+            board_type:
+              type: string
+              enum: [bug, notice, inquiry]
+              default: bug
+            is_important:
+              type: boolean
+              description: 공지사항(admin)만 적용
     responses:
       201:
         description: 작성 성공
       400:
         description: 입력값 검증 실패 (VALIDATION_ERROR)
+      403:
+        description: 게시판 작성 권한 없음 (FORBIDDEN)
     """
     user_id = get_current_user_id()
+    role = get_current_role()
     body = request.get_json() or {}
 
-    result = post_service.create_post(user_id, body)
+    result = post_service.create_post(user_id, role, body)
     return jsonify(result), 201
 
 
@@ -155,6 +174,9 @@ def update_post(post_id):
               type: string
             content:
               type: string
+            is_important:
+              type: boolean
+              description: 공지사항(admin)만 적용
     responses:
       200:
         description: 수정 성공
@@ -166,9 +188,10 @@ def update_post(post_id):
         description: 게시물 없음 (POST_NOT_FOUND)
     """
     user_id = get_current_user_id()
+    role = get_current_role()
     body = request.get_json() or {}
 
-    result = post_service.update_post(post_id, user_id, body)
+    result = post_service.update_post(post_id, user_id, role, body)
     return jsonify(result)
 
 
@@ -197,8 +220,9 @@ def delete_post(post_id):
         description: 게시물 없음 (POST_NOT_FOUND)
     """
     user_id = get_current_user_id()
+    role = get_current_role()
 
-    post_service.delete_post(post_id, user_id)
+    post_service.delete_post(post_id, user_id, role)
     return jsonify({"id": post_id})
 
 
@@ -288,6 +312,7 @@ def toggle_like(post_id):
         description: 게시물 없음 (POST_NOT_FOUND)
     """
     user_id = get_current_user_id()
+    role = get_current_role()
 
-    result = post_like_service.toggle_like(post_id, user_id)
+    result = post_like_service.toggle_like(post_id, user_id, role)
     return jsonify(result)

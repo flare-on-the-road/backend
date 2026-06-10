@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from app.common.constants import PostBoardType
 from app.extensions import db
 
 
@@ -7,6 +8,12 @@ class Post(db.Model):
     __tablename__ = "posts"
     __table_args__ = (
         db.Index("ix_posts_is_deleted_created_at", "is_deleted", "created_at"),
+        db.Index(
+            "ix_posts_board_type_is_deleted_created_at",
+            "board_type",
+            "is_deleted",
+            "created_at",
+        ),
     )
 
     id = db.Column(
@@ -25,6 +32,14 @@ class Post(db.Model):
 
     title = db.Column(db.String(100), nullable=False)
     content = db.Column(db.Text, nullable=False)
+
+    board_type = db.Column(
+        db.String(20),
+        nullable=False,
+        default=PostBoardType.BUG,
+        index=True,
+    )
+    is_important = db.Column(db.Boolean, nullable=False, default=False)
 
     is_hidden = db.Column(db.Boolean, nullable=False, default=False)
     hidden_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)

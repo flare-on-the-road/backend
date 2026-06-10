@@ -1,4 +1,4 @@
-from app.common.constants import UserRole
+from app.common.constants import PostBoardType, UserRole
 from app.common.errors import (
     CommentNotFoundError,
     ForbiddenError,
@@ -20,6 +20,9 @@ def _ensure_post_visible(post_id, user_id, role):
 
     if post.is_hidden and not (is_owner or is_admin):
         raise ForbiddenError("가려진 게시물입니다.")
+
+    if post.board_type == PostBoardType.INQUIRY and not (is_owner or is_admin):
+        raise ForbiddenError("본인 또는 관리자만 조회할 수 있습니다.")
 
     return post
 

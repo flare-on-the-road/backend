@@ -73,6 +73,7 @@ def test_get_post_increments_view_count(client, user_headers):
         "can_edit": True,
         "can_delete": True,
         "can_hide": False,
+        "can_like": True,
     }
 
 

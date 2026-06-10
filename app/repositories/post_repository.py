@@ -2,6 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import func, or_, select
 
+from app.common.constants import PostBoardType
 from app.extensions import db
 from app.models.comment import Comment
 from app.models.post import Post
@@ -79,18 +80,24 @@ def _apply_search(stmt, keyword, search_type):
     return stmt.where(Post.title.like(pattern, escape="\\"))
 
 
-def find_posts(page, size, keyword=None, search_type="title"):
-    stmt = _apply_search(_base_select(), keyword, search_type)
+def find_posts(page, size, keyword=None, search_type="title", board_type=PostBoardType.BUG):
+    if board_type == PostBoardType.INQUIRY and search_type == "author":
+        search_type = "title"
+
+    stmt = _apply_search(_base_select(), keyword, search_type).where(
+        Post.board_type == board_type
+    )
 
     total_count = db.session.execute(
         select(func.count()).select_from(stmt.subquery())
     ).scalar_one()
 
-    stmt = (
-        stmt.order_by(Post.created_at.desc())
-        .offset((page - 1) * size)
-        .limit(size)
-    )
+    if board_type == PostBoardType.NOTICE:
+        stmt = stmt.order_by(Post.is_important.desc(), Post.created_at.desc())
+    else:
+        stmt = stmt.order_by(Post.created_at.desc())
+
+    stmt = stmt.offset((page - 1) * size).limit(size)
 
     rows = db.session.execute(stmt).all()
     return rows, total_count
@@ -110,8 +117,14 @@ def find_by_id(post_id):
     return db.session.get(Post, post_id)
 
 
-def create(author_id, title, content):
-    post = Post(author_id=author_id, title=title, content=content)
+def create(author_id, title, content, board_type=PostBoardType.BUG, is_important=False):
+    post = Post(
+        author_id=author_id,
+        title=title,
+        content=content,
+        board_type=board_type,
+        is_important=is_important,
+    )
     db.session.add(post)
     db.session.commit()
     return post
