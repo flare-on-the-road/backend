@@ -155,3 +155,45 @@ def update_current_user_profile_image(user_id, profile_image):
     user.profile_image_file = uploaded_file
 
     return user_repository.save(user).to_dict()
+
+
+def change_current_user_password(
+    user_id,
+    current_password=None,
+    new_password=None,
+    new_password_confirm=None,
+):
+    user = user_repository.find_by_id(user_id)
+
+    if not user:
+        raise ValueError("사용자를 찾을 수 없습니다.")
+
+    if not user.is_active:
+        raise ValueError("비활성화된 계정입니다.")
+
+    if not user.password_hash:
+        raise ValueError("비밀번호 변경은 이메일 로그인 계정만 가능합니다.")
+
+    normalized_current_password = str(current_password or "")
+    normalized_new_password = str(new_password or "")
+    normalized_new_password_confirm = str(new_password_confirm or "")
+
+    if not normalized_current_password:
+        raise ValueError("현재 비밀번호를 입력해주세요.")
+
+    if not normalized_new_password:
+        raise ValueError("새 비밀번호를 입력해주세요.")
+
+    if len(normalized_new_password) < 8:
+        raise ValueError("새 비밀번호는 8자 이상 입력해주세요.")
+
+    if normalized_new_password != normalized_new_password_confirm:
+        raise ValueError("새 비밀번호 확인이 일치하지 않습니다.")
+
+    if not user.check_password(normalized_current_password):
+        raise ValueError("현재 비밀번호가 올바르지 않습니다.")
+
+    user.set_password(normalized_new_password)
+    user_repository.save(user)
+
+    return {"changed": True}

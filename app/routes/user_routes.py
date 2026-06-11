@@ -131,3 +131,59 @@ def update_my_profile_image():
         return fail(_error_message(e), 400)
     except Exception as e:
         return fail(_error_message(e), 400)
+
+
+@user_bp.patch("/me/password")
+@jwt_required()
+def change_my_password():
+    """
+    내 비밀번호 변경 API
+    ---
+    tags:
+      - Users
+    summary: 내 비밀번호 변경
+    description: 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - currentPassword
+            - newPassword
+            - newPasswordConfirm
+          properties:
+            currentPassword:
+              type: string
+              example: password1234
+            newPassword:
+              type: string
+              example: newPassword1234
+            newPasswordConfirm:
+              type: string
+              example: newPassword1234
+    responses:
+      200:
+        description: 내 비밀번호 변경 성공
+      400:
+        description: 잘못된 요청
+      404:
+        description: 사용자 정보 없음
+    """
+    body = request.get_json(silent=True) or {}
+
+    try:
+        result = auth_service.change_current_user_password(
+            user_id=get_jwt_identity(),
+            current_password=body.get("currentPassword"),
+            new_password=body.get("newPassword"),
+            new_password_confirm=body.get("newPasswordConfirm"),
+        )
+        return success(result, "내 비밀번호 변경 성공")
+    except ValueError as e:
+        return fail(_error_message(e), 400)
+    except Exception as e:
+        return fail(_error_message(e), 404)
