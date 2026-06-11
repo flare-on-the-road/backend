@@ -236,6 +236,30 @@ def test_create_post_with_attachments(client, user_headers, app, monkeypatch):
     assert all(a["content_type"] == "image/png" for a in attachments)
 
 
+def test_create_post_rolled_back_when_attachment_upload_fails(client, user_headers, monkeypatch):
+    def _raise_upload_error(**kwargs):
+        raise ValueError("R2 업로드 설정이 누락되었습니다: ...")
+
+    monkeypatch.setattr(uploads_module, "_upload_to_r2", _raise_upload_error)
+
+    res = client.post(
+        "/api/posts",
+        data={
+            "title": "업로드 실패 테스트",
+            "content": "내용",
+            "attachments": _png_file("a.png"),
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    assert res.status_code == 400
+    assert res.get_json()["error"]["code"] == "VALIDATION_ERROR"
+
+    list_res = client.get("/api/posts", headers=user_headers)
+    titles = [p["title"] for p in list_res.get_json()["posts"]]
+    assert "업로드 실패 테스트" not in titles
+
+
 def test_create_post_attachment_limit_exceeded(client, user_headers, app, monkeypatch):
     _disable_r2_upload(app, monkeypatch)
 

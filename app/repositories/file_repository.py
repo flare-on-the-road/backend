@@ -20,8 +20,8 @@ def find_active_by_entity(entity_type, entity_id):
 
 
 def mark_deleted(file):
+    # no commit: caller commits together with the related post change
     file.status = FileStatus.DELETED
-    db.session.commit()
 
 
 def create_file(

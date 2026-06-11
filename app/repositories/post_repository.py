@@ -118,6 +118,8 @@ def find_by_id(post_id):
 
 
 def create(author_id, title, content, board_type=PostBoardType.BUG, is_important=False):
+    # flush (no commit): caller may attach files in the same transaction
+    # and roll everything back together if an attachment fails.
     post = Post(
         author_id=author_id,
         title=title,
@@ -126,12 +128,13 @@ def create(author_id, title, content, board_type=PostBoardType.BUG, is_important
         is_important=is_important,
     )
     db.session.add(post)
-    db.session.commit()
+    db.session.flush()
     return post
 
 
 def save(post):
-    db.session.commit()
+    # flush (no commit): see create()
+    db.session.flush()
     return post
 
 
@@ -141,8 +144,9 @@ def increment_view_count(post):
 
 
 def soft_delete(post):
+    # flush (no commit): caller commits together with attachment cleanup
     post.is_deleted = True
-    db.session.commit()
+    db.session.flush()
 
 
 def hide(post, admin_id):

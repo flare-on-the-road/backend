@@ -1,6 +1,7 @@
 from app.common.constants import FilePurpose, PostBoardType, UserRole
 from app.common.errors import ForbiddenError, PostNotFoundError, ValidationError
 from app.common.uploads import ALLOWED_IMAGE_CONTENT_TYPES, UploadContext, upload_file
+from app.extensions import db
 from app.repositories import file_repository, post_like_repository, post_repository
 from app.schemas.post_schema import (
     serialize_post_detail,
@@ -111,7 +112,14 @@ def create_post(user_id, role, data, files=None):
     validate_attachments(files)
 
     post = post_repository.create(user_id, title, content, board_type, is_important)
-    _attach_files(post, user_id, files)
+
+    try:
+        _attach_files(post, user_id, files)
+    except Exception:
+        db.session.rollback()
+        raise
+
+    db.session.commit()
 
     return {"id": post.id}
 
@@ -154,9 +162,15 @@ def update_post(post_id, user_id, role, data, files=None, removed_file_ids=None)
         post.is_important = is_important
     post_repository.save(post)
 
-    for f in files_to_remove:
-        file_repository.mark_deleted(f)
-    _attach_files(post, user_id, files)
+    try:
+        for f in files_to_remove:
+            file_repository.mark_deleted(f)
+        _attach_files(post, user_id, files)
+    except Exception:
+        db.session.rollback()
+        raise
+
+    db.session.commit()
 
     return {"id": post.id}
 
@@ -167,6 +181,8 @@ def delete_post(post_id, user_id, role):
 
     for f in file_repository.find_active_by_entity("post", post.id):
         file_repository.mark_deleted(f)
+
+    db.session.commit()
 
 
 def hide_post(post_id, role, admin_id):
