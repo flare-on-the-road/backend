@@ -1,8 +1,10 @@
 from app.common.constants import PostBoardType, UserRole
 from app.common.errors import ValidationError
+from app.common.uploads import ALLOWED_IMAGE_CONTENT_TYPES
 
 TITLE_MAX_LENGTH = 100
 CONTENT_MAX_LENGTH = 10000
+MAX_ATTACHMENTS_PER_POST = 2
 
 HIDDEN_TITLE_TEXT = "관리자에 의해 가려진 게시물입니다"
 
@@ -33,6 +35,19 @@ def validate_post_input(data, board_type=PostBoardType.BUG, role=None):
     )
 
     return title, content, is_important
+
+
+def validate_attachments(files, existing_count=0):
+    if existing_count + len(files) > MAX_ATTACHMENTS_PER_POST:
+        raise ValidationError(
+            {"attachments": f"첨부파일은 최대 {MAX_ATTACHMENTS_PER_POST}개까지 등록할 수 있습니다."}
+        )
+
+    for file in files:
+        if (file.mimetype or "") not in ALLOWED_IMAGE_CONTENT_TYPES:
+            raise ValidationError(
+                {"attachments": "이미지 파일(jpg, png, gif, webp)만 첨부할 수 있습니다."}
+            )
 
 
 def serialize_post_summary(row, user_id, role):
@@ -73,7 +88,7 @@ def serialize_post_summary(row, user_id, role):
     }
 
 
-def serialize_post_detail(row, user_id, role, liked_by_me):
+def serialize_post_detail(row, user_id, role, liked_by_me, attachments=None):
     post = row.Post
     is_owner = post.author_id == user_id
     is_admin = role == UserRole.ADMIN
@@ -112,4 +127,14 @@ def serialize_post_detail(row, user_id, role, liked_by_me):
         "created_at": post.created_at.isoformat(),
         "updated_at": post.updated_at.isoformat(),
         "permissions": permissions,
+        "attachments": [
+            {
+                "id": f.id,
+                "original_filename": f.original_filename,
+                "url": f.public_url or f"/files/{f.id}/download",
+                "byte_size": f.byte_size,
+                "content_type": f.content_type,
+            }
+            for f in (attachments or [])
+        ],
     }

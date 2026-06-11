@@ -129,6 +129,11 @@ def create_post():
             is_important:
               type: boolean
               description: 공지사항(admin)만 적용
+      - in: formData
+        name: attachments
+        type: file
+        required: false
+        description: 첨부 이미지 (jpg/png/webp/gif, 최대 2개, multipart/form-data 전용)
     responses:
       201:
         description: 작성 성공
@@ -139,9 +144,15 @@ def create_post():
     """
     user_id = get_current_user_id()
     role = get_current_role()
-    body = request.get_json() or {}
 
-    result = post_service.create_post(user_id, role, body)
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        body = request.form.to_dict()
+        files = request.files.getlist("attachments")
+    else:
+        body = request.get_json() or {}
+        files = []
+
+    result = post_service.create_post(user_id, role, body, files)
     return jsonify(result), 201
 
 
@@ -177,6 +188,18 @@ def update_post(post_id):
             is_important:
               type: boolean
               description: 공지사항(admin)만 적용
+      - in: formData
+        name: attachments
+        type: file
+        required: false
+        description: 새로 추가할 첨부 이미지 (jpg/png/webp/gif, multipart/form-data 전용)
+      - in: formData
+        name: removed_file_ids
+        type: array
+        items:
+          type: integer
+        required: false
+        description: 삭제할 기존 첨부파일 id (반복 가능, multipart/form-data 전용)
     responses:
       200:
         description: 수정 성공
@@ -189,9 +212,17 @@ def update_post(post_id):
     """
     user_id = get_current_user_id()
     role = get_current_role()
-    body = request.get_json() or {}
 
-    result = post_service.update_post(post_id, user_id, role, body)
+    if request.content_type and request.content_type.startswith("multipart/form-data"):
+        body = request.form.to_dict()
+        files = request.files.getlist("attachments")
+        removed_file_ids = [int(v) for v in request.form.getlist("removed_file_ids")]
+    else:
+        body = request.get_json() or {}
+        files = []
+        removed_file_ids = body.get("removed_file_ids") or []
+
+    result = post_service.update_post(post_id, user_id, role, body, files, removed_file_ids)
     return jsonify(result)
 
 

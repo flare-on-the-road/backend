@@ -1,9 +1,11 @@
-from app.common.constants import PostBoardType, UserRole
-from app.common.errors import ForbiddenError, PostNotFoundError
-from app.repositories import post_like_repository, post_repository
+from app.common.constants import FilePurpose, PostBoardType, UserRole
+from app.common.errors import ForbiddenError, PostNotFoundError, ValidationError
+from app.common.uploads import ALLOWED_IMAGE_CONTENT_TYPES, UploadContext, upload_file
+from app.repositories import file_repository, post_like_repository, post_repository
 from app.schemas.post_schema import (
     serialize_post_detail,
     serialize_post_summary,
+    validate_attachments,
     validate_post_input,
 )
 
@@ -69,10 +71,32 @@ def get_post_detail(post_id, user_id, role):
     like = post_like_repository.find(post_id, user_id)
     liked_by_me = like is not None
 
-    return serialize_post_detail(row, user_id, role, liked_by_me)
+    attachments = file_repository.find_active_by_entity("post", post.id)
+
+    return serialize_post_detail(row, user_id, role, liked_by_me, attachments)
 
 
-def create_post(user_id, role, data):
+def _attach_files(post, user_id, files):
+    for file in files:
+        try:
+            upload_file(
+                file,
+                UploadContext(
+                    purpose=FilePurpose.BOARD_ATTACHMENT,
+                    owner_user_id=user_id,
+                    entity_type="post",
+                    entity_id=post.id,
+                    directory="posts",
+                    allowed_content_types=ALLOWED_IMAGE_CONTENT_TYPES,
+                ),
+            )
+        except ValueError as e:
+            raise ValidationError({"attachments": str(e)})
+
+
+def create_post(user_id, role, data, files=None):
+    files = files or []
+
     board_type = data.get("board_type", PostBoardType.BUG)
     if board_type not in PostBoardType.ALL:
         board_type = PostBoardType.BUG
@@ -84,7 +108,11 @@ def create_post(user_id, role, data):
         raise ForbiddenError("관리자는 1:1 문의를 작성할 수 없습니다.")
 
     title, content, is_important = validate_post_input(data, board_type, role)
+    validate_attachments(files)
+
     post = post_repository.create(user_id, title, content, board_type, is_important)
+    _attach_files(post, user_id, files)
+
     return {"id": post.id}
 
 
@@ -108,9 +136,17 @@ def _get_owned_active_post(post_id, user_id, role=None):
     return post
 
 
-def update_post(post_id, user_id, role, data):
+def update_post(post_id, user_id, role, data, files=None, removed_file_ids=None):
+    files = files or []
+    removed_file_ids = set(removed_file_ids or [])
+
     post = _get_owned_active_post(post_id, user_id, role)
     title, content, is_important = validate_post_input(data, post.board_type, role)
+
+    existing_files = file_repository.find_active_by_entity("post", post.id)
+    files_to_remove = [f for f in existing_files if f.id in removed_file_ids]
+    remaining_count = len(existing_files) - len(files_to_remove)
+    validate_attachments(files, existing_count=remaining_count)
 
     post.title = title
     post.content = content
@@ -118,12 +154,19 @@ def update_post(post_id, user_id, role, data):
         post.is_important = is_important
     post_repository.save(post)
 
+    for f in files_to_remove:
+        file_repository.mark_deleted(f)
+    _attach_files(post, user_id, files)
+
     return {"id": post.id}
 
 
 def delete_post(post_id, user_id, role):
     post = _get_owned_active_post(post_id, user_id, role)
     post_repository.soft_delete(post)
+
+    for f in file_repository.find_active_by_entity("post", post.id):
+        file_repository.mark_deleted(f)
 
 
 def hide_post(post_id, role, admin_id):

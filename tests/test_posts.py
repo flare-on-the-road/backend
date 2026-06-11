@@ -1,6 +1,25 @@
+import io
+
+from PIL import Image
+
+from app.common import uploads as uploads_module
+
+
 def _create_post(client, headers, title="제목", content="내용"):
     res = client.post("/api/posts", json={"title": title, "content": content}, headers=headers)
     return res.get_json()["id"]
+
+
+def _png_file(filename="test.png"):
+    buf = io.BytesIO()
+    Image.new("RGB", (2, 2), color="red").save(buf, format="PNG")
+    buf.seek(0)
+    return (buf, filename, "image/png")
+
+
+def _disable_r2_upload(app, monkeypatch):
+    app.config["CF_R2_BUCKET_NAME"] = "test-bucket"
+    monkeypatch.setattr(uploads_module, "_upload_to_r2", lambda **kwargs: None)
 
 
 def test_create_post_success(client, user_headers):
@@ -192,3 +211,101 @@ def test_like_hidden_post_forbidden(client, user_headers, other_headers, admin_h
     res = client.post(f"/api/posts/{post_id}/like", headers=other_headers)
     assert res.status_code == 403
     assert res.get_json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_create_post_with_attachments(client, user_headers, app, monkeypatch):
+    _disable_r2_upload(app, monkeypatch)
+
+    res = client.post(
+        "/api/posts",
+        data={
+            "title": "스크린샷 첨부",
+            "content": "재현 화면 첨부합니다",
+            "attachments": [_png_file("a.png"), _png_file("b.png")],
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    assert res.status_code == 201
+    post_id = res.get_json()["id"]
+
+    detail = client.get(f"/api/posts/{post_id}", headers=user_headers).get_json()
+    attachments = detail["attachments"]
+    assert len(attachments) == 2
+    assert {a["original_filename"] for a in attachments} == {"a.png", "b.png"}
+    assert all(a["content_type"] == "image/png" for a in attachments)
+
+
+def test_create_post_attachment_limit_exceeded(client, user_headers, app, monkeypatch):
+    _disable_r2_upload(app, monkeypatch)
+
+    res = client.post(
+        "/api/posts",
+        data={
+            "title": "첨부 3개",
+            "content": "내용",
+            "attachments": [_png_file("a.png"), _png_file("b.png"), _png_file("c.png")],
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    assert res.status_code == 400
+    body = res.get_json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert "attachments" in body["error"]["details"]
+
+
+def test_create_post_attachment_invalid_type(client, user_headers, app, monkeypatch):
+    _disable_r2_upload(app, monkeypatch)
+
+    res = client.post(
+        "/api/posts",
+        data={
+            "title": "잘못된 첨부",
+            "content": "내용",
+            "attachments": (io.BytesIO(b"not an image"), "memo.txt", "text/plain"),
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    assert res.status_code == 400
+    body = res.get_json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert "attachments" in body["error"]["details"]
+
+
+def test_update_post_replace_attachment(client, user_headers, app, monkeypatch):
+    _disable_r2_upload(app, monkeypatch)
+
+    create_res = client.post(
+        "/api/posts",
+        data={
+            "title": "원본 제목",
+            "content": "원본 내용",
+            "attachments": _png_file("old.png"),
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    post_id = create_res.get_json()["id"]
+
+    detail_before = client.get(f"/api/posts/{post_id}", headers=user_headers).get_json()
+    old_file_id = detail_before["attachments"][0]["id"]
+
+    update_res = client.put(
+        f"/api/posts/{post_id}",
+        data={
+            "title": "수정된 제목",
+            "content": "수정된 내용",
+            "attachments": _png_file("new.png"),
+            "removed_file_ids": str(old_file_id),
+        },
+        content_type="multipart/form-data",
+        headers=user_headers,
+    )
+    assert update_res.status_code == 200
+
+    detail_after = client.get(f"/api/posts/{post_id}", headers=user_headers).get_json()
+    attachments_after = detail_after["attachments"]
+    assert len(attachments_after) == 1
+    assert attachments_after[0]["original_filename"] == "new.png"

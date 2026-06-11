@@ -1,9 +1,27 @@
+from app.common.constants import FileStatus
 from app.extensions import db
 from app.models.file import File
 
 
 def find_by_id(file_id):
     return File.query.get(file_id)
+
+
+def find_active_by_entity(entity_type, entity_id):
+    return (
+        File.query.filter_by(
+            entity_type=entity_type,
+            entity_id=str(entity_id),
+            status=FileStatus.ACTIVE,
+        )
+        .order_by(File.id.asc())
+        .all()
+    )
+
+
+def mark_deleted(file):
+    file.status = FileStatus.DELETED
+    db.session.commit()
 
 
 def create_file(
