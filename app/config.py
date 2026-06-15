@@ -23,25 +23,27 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": int(os.getenv("SQLALCHEMY_POOL_RECYCLE_SECONDS", 280)),
+        "pool_timeout": int(os.getenv("SQLALCHEMY_POOL_TIMEOUT_SECONDS", 30)),
+    }
+
     if OS_NAME == "Windows":
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            "pool_pre_ping": True,
-            "pool_recycle": 300,
-            "connect_args": {
-                "ssl": {"ca": certifi.where()}
-            },
+        SQLALCHEMY_ENGINE_OPTIONS["connect_args"] = {
+            "ssl": {"ca": certifi.where()}
         }
 
     if OS_NAME == "Darwin":  # macOS
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            "connect_args": {
+        SQLALCHEMY_ENGINE_OPTIONS.update(
+            {
+                "connect_args": {
                 "ssl_ca": "/etc/ssl/cert.pem",
                 "ssl_verify_cert": True,
                 "ssl_verify_identity": True,
-            },
-            "pool_pre_ping": True,
-            "pool_recycle": 300,
-        }
+                }
+            }
+        )
     
     
 
