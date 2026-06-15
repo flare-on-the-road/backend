@@ -5,6 +5,7 @@ from app.routes.comment_routes import comment_bp
 from app.routes.user_routes import user_bp
 from app.routes.file_routes import file_bp
 from app.routes.cctv_routes import cctv_bp
+from app.routes.admin_routes import admin_bp
 
 __all__ = [
     'health_bp',
@@ -14,4 +15,5 @@ __all__ = [
     'user_bp',
     'file_bp',
     'cctv_bp',
+    'admin_bp',
 ]
