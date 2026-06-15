@@ -4,6 +4,7 @@ from app.models.post import Post
 from app.models.comment import Comment
 from app.models.post_like import PostLike
 from app.models.file import File
+from app.models.event import Event
 
 __all__ = [
     "User",
@@ -12,4 +13,5 @@ __all__ = [
     "Comment",
     "PostLike",
     "File",
+    "Event",
 ]

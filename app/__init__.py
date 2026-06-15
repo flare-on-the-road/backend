@@ -3,7 +3,7 @@ from flask_jwt_extended import JWTManager
 from app.config import Config
 from app.extensions import db, cors, migrate, swagger
 from app.common.errors import register_error_handlers
-from app.routes import health_bp, auth_bp, post_bp, comment_bp, user_bp, file_bp, cctv_bp, admin_bp
+from app.routes import health_bp, auth_bp, post_bp, comment_bp, user_bp, file_bp, cctv_bp, admin_bp, event_bp
 
 
 jwt = JWTManager()
@@ -82,7 +82,7 @@ def create_app(config_class=Config):
     app.register_blueprint(cctv_bp, url_prefix="/api/cctvs")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
     # app.register_blueprint(cctv_bp, url_prefix="/api/cctv")
-    # app.register_blueprint(event_bp, url_prefix="/api/events")
+    app.register_blueprint(event_bp, url_prefix="/api/events")
     # FIXME end
 
     return app

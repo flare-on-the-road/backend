@@ -6,6 +6,7 @@ from app.routes.user_routes import user_bp
 from app.routes.file_routes import file_bp
 from app.routes.cctv_routes import cctv_bp
 from app.routes.admin_routes import admin_bp
+from app.routes.event_routes import event_bp
 
 __all__ = [
     'health_bp',
@@ -16,4 +17,5 @@ __all__ = [
     'file_bp',
     'cctv_bp',
     'admin_bp',
+    'event_bp',
 ]

@@ -6,6 +6,7 @@ class ErrorCode:
     FORBIDDEN = "FORBIDDEN"
     POST_NOT_FOUND = "POST_NOT_FOUND"
     COMMENT_NOT_FOUND = "COMMENT_NOT_FOUND"
+    EVENT_NOT_FOUND = "EVENT_NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     MAX_DEPTH_EXCEEDED = "MAX_DEPTH_EXCEEDED"
     INVALID_PARENT = "INVALID_PARENT"
@@ -44,6 +45,11 @@ class PostNotFoundError(ApiError):
 class CommentNotFoundError(ApiError):
     def __init__(self, message="댓글을 찾을 수 없습니다."):
         super().__init__(ErrorCode.COMMENT_NOT_FOUND, message, 404)
+
+
+class EventNotFoundError(ApiError):
+    def __init__(self, message="이벤트를 찾을 수 없습니다."):
+        super().__init__(ErrorCode.EVENT_NOT_FOUND, message, 404)
 
 
 class MaxDepthExceededError(ApiError):
