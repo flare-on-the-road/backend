@@ -157,3 +157,43 @@ def get_event(event_id):
     """
     result = event_service.get_event(event_id)
     return jsonify(result)
+
+
+@event_bp.patch("/<int:event_id>")
+def patch_event(event_id):
+    """
+    VLM 판단 결과 업데이트 (Worker → Backend)
+    ---
+    tags:
+      - Events
+    summary: VLM 2차 판단 결과 업데이트 (인증 불필요)
+    parameters:
+      - in: path
+        name: event_id
+        type: integer
+        required: true
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - is_fire
+          properties:
+            is_fire:
+              type: boolean
+              example: true
+            vlm_reason:
+              type: string
+              example: "차량 우측에서 회색 연기 지속 발생"
+    responses:
+      200:
+        description: 업데이트 성공
+      400:
+        description: 입력값 오류 (VALIDATION_ERROR)
+      404:
+        description: 이벤트 없음 (EVENT_NOT_FOUND)
+    """
+    body = request.get_json() or {}
+    result = event_service.patch_event_vlm(event_id, body)
+    return jsonify(result)

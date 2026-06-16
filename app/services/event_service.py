@@ -1,8 +1,12 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
 from app.common.errors import EventNotFoundError, ValidationError
+from app.common.uploads import create_presigned_download_url
 from app.repositories import event_repository
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -54,7 +58,7 @@ def list_events(
     total_pages = (total + size - 1) // size if total else 0
 
     return {
-        "events": [r.to_dict() for r in rows],
+        "events": [_with_snapshot_url(r.to_dict()) for r in rows],
         "pagination": {
             "current_page": page,
             "size": size,
@@ -68,10 +72,41 @@ def get_event(event_id: int) -> dict:
     event = event_repository.find_by_id(event_id)
     if event is None:
         raise EventNotFoundError()
-    return event.to_dict()
+    return _with_snapshot_url(event.to_dict())
+
+
+def patch_event_vlm(event_id: int, body: dict) -> dict:
+    if "is_fire" not in body:
+        raise ValidationError("is_fire 필드가 필요합니다")
+    is_fire = body["is_fire"]
+    if not isinstance(is_fire, bool):
+        raise ValidationError("is_fire는 boolean이어야 합니다")
+    vlm_reason = body.get("vlm_reason")
+
+    event = event_repository.update_vlm_result(event_id, is_fire, vlm_reason)
+    if event is None:
+        raise EventNotFoundError()
+    return _with_snapshot_url(event.to_dict())
+
+
+def _with_snapshot_url(event_dict: dict) -> dict:
+    key = event_dict.get("snapshotKey")
+    if key:
+        try:
+            event_dict["snapshotUrl"] = create_presigned_download_url(key)
+        except Exception:
+            logger.warning("presigned URL 생성 실패: %s", key)
+            event_dict["snapshotUrl"] = None
+    else:
+        event_dict["snapshotUrl"] = None
+    return event_dict
 
 
 def _parse_datetime(value: str) -> datetime:
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, AttributeError):
+        pass
     for fmt in ("%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
             dt = datetime.strptime(value.replace("+09:00", "").replace("Z", ""), fmt.replace("%z", ""))

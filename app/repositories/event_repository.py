@@ -55,3 +55,13 @@ def find_list(
 
 def find_by_id(event_id: int) -> Optional[Event]:
     return db.session.get(Event, event_id)
+
+
+def update_vlm_result(event_id: int, is_fire: bool, vlm_reason: Optional[str]) -> Optional[Event]:
+    event = db.session.get(Event, event_id)
+    if event is None:
+        return None
+    event.is_fire = is_fire
+    event.vlm_reason = vlm_reason
+    db.session.commit()
+    return event
