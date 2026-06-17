@@ -9,6 +9,14 @@ from dotenv import load_dotenv
 load_dotenv()
 OS_NAME = platform.system()
 
+
+def _int_env(name, default):
+    value = os.getenv(name)
+    if value in (None, ""):
+        return default
+    return int(value)
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 
@@ -86,6 +94,13 @@ class Config:
     CF_R2_PUBLIC_URL = os.getenv("CF_R2_PUBLIC_URL")
     CF_R2_ENDPOINT_URL = os.getenv("CF_R2_ENDPOINT_URL")
     MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+
+    VISION_API_URL = os.getenv("VISION_API_URL", "")
+    VISION_API_TIMEOUT_SECONDS = _int_env("VISION_API_TIMEOUT_SECONDS", 30)
+    VISION_SAMPLE_IMAGE_DIR = os.getenv(
+        "VISION_SAMPLE_IMAGE_DIR",
+        str(Path(__file__).resolve().parents[2] / "frontend" / "public" / "ai-lab" / "samples"),
+    )
 
 
 class TestConfig(Config):

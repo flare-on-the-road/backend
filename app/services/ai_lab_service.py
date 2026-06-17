@@ -1,72 +1,143 @@
-import hashlib
+import base64
+import time
+from pathlib import Path
+from typing import Any
 
-MOCK_RESULTS = {
-    "rt-detr": {
-        "inference_ms": 18.9,
-        "fps": 53,
-        "detections": [
-            {"label": "SMOKE", "confidence": 0.87, "bbox": [0.05, 0.05, 0.55, 0.45]},
-            {"label": "FIRE", "confidence": 0.92, "bbox": [0.15, 0.40, 0.40, 0.50]},
-        ],
-    },
-    "yolov8": {
-        "inference_ms": 12.5,
-        "fps": 79,
-        "detections": [
-            {"label": "SMOKE", "confidence": 0.80, "bbox": [0.08, 0.04, 0.58, 0.48]},
-            {"label": "FIRE", "confidence": 0.88, "bbox": [0.18, 0.42, 0.42, 0.48]},
-        ],
-    },
-    "yolov11": {
-        "inference_ms": 10.0,
-        "fps": 100,
-        "detections": [
-            {"label": "SMOKE", "confidence": 0.89, "bbox": [0.06, 0.05, 0.56, 0.46]},
-            {"label": "FIRE", "confidence": 0.94, "bbox": [0.16, 0.41, 0.41, 0.49]},
-        ],
-    },
+import requests
+from flask import current_app
+
+from app.common.errors import ValidationError, VisionApiUnavailableError
+
+
+MODEL_DISPLAY_NAMES = {
+    "rt-detr": "RT-DETRv2",
+    "yolov8": "YOLOv8",
+    "yolov11": "YOLOv11",
 }
 
+SAMPLE_EXTENSIONS = ("jpg", "jpeg", "png")
 
-def detect(image_key, models, threshold):
-    """선택된 모델별 Mock 탐지 결과를 threshold로 필터링해 반환한다."""
-    image_key = image_key or "uploaded"
+
+def detect(image_key, image_base64, models, threshold):
+    """Vision FastAPI 서버를 호출하고 프론트의 AI Lab 응답 형태로 변환한다."""
+    image_bytes = _resolve_image_bytes(image_key=image_key, image_base64=image_base64)
     results = {}
 
     for model_key in models:
-        base = MOCK_RESULTS[model_key]
-        jitter = _jitter(image_key, model_key)
+        if model_key != "rt-detr":
+            results[model_key] = _unavailable_model_result(model_key)
+            continue
 
-        detections = []
-        for detection in base["detections"]:
-            confidence = round(_clamp(detection["confidence"] + jitter, 0.0, 0.99), 2)
-            if confidence < threshold:
-                continue
-
-            detections.append(
-                {
-                    "label": detection["label"],
-                    "confidence": confidence,
-                    "bbox": detection["bbox"],
-                }
-            )
-
-        results[model_key] = {
-            "inference_ms": base["inference_ms"],
-            "fps": base["fps"],
-            "detections": detections,
-        }
+        raw_result, elapsed_ms = _call_vision_api(
+            image_bytes=image_bytes,
+            confidence=threshold,
+        )
+        results[model_key] = _to_model_result(raw_result, elapsed_ms)
 
     return results
 
 
-def _jitter(image_key, model_key):
-    # 이미지별/모델별로 결정적인 ±0.04 confidence 편차를 부여해 "이미지마다 약간씩
-    # 다른 결과"를 재현한다 (실제 추론 미구현 단계의 Mock 데이터 보강용).
-    digest = hashlib.sha1(f"{image_key}:{model_key}".encode()).hexdigest()
-    ratio = int(digest[:4], 16) / 0xFFFF
-    return round((ratio - 0.5) * 0.08, 3)
+def _resolve_image_bytes(image_key, image_base64):
+    if image_base64:
+        try:
+            if "," in image_base64:
+                image_base64 = image_base64.split(",", 1)[1]
+            return base64.b64decode(image_base64, validate=True)
+        except Exception:
+            raise ValidationError({"image_base64": "올바른 base64 이미지가 아닙니다."})
+
+    sample_path = _find_sample_image(image_key)
+    if sample_path is None:
+        raise ValidationError({"image_key": "샘플 이미지를 찾을 수 없습니다."})
+
+    return sample_path.read_bytes()
 
 
-def _clamp(value, lo, hi):
-    return max(lo, min(hi, value))
+def _find_sample_image(image_key):
+    if not image_key or "/" in image_key or "\\" in image_key or ".." in image_key:
+        return None
+
+    sample_dir = Path(current_app.config["VISION_SAMPLE_IMAGE_DIR"])
+    for extension in SAMPLE_EXTENSIONS:
+        candidate = sample_dir / f"{image_key}.{extension}"
+        if candidate.is_file():
+            return candidate
+
+    return None
+
+
+def _call_vision_api(image_bytes, confidence):
+    base_url = current_app.config.get("VISION_API_URL", "").rstrip("/")
+    timeout = current_app.config.get("VISION_API_TIMEOUT_SECONDS", 30)
+
+    if not base_url:
+        raise VisionApiUnavailableError(
+            details={"VISION_API_URL": "Vision FastAPI 서버 URL이 설정되지 않았습니다."}
+        )
+
+    start = time.perf_counter()
+    try:
+        response = requests.post(
+            f"{base_url}/predict",
+            files={"image": ("frame.jpg", image_bytes, "image/jpeg")},
+            data={"confidence": confidence, "max_detections": 100},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except requests.exceptions.RequestException as exc:
+        raise VisionApiUnavailableError(details={"reason": str(exc)})
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    return response.json(), elapsed_ms
+
+
+def _to_model_result(raw_result: dict[str, Any], elapsed_ms: float):
+    detections = []
+
+    for detection in raw_result.get("detections", []):
+        class_name = detection.get("class_name", "")
+        if class_name not in {"fire", "smoke"}:
+            continue
+
+        bbox = detection.get("bbox_normalized", {})
+        x1 = _clamp(float(bbox.get("x1", 0.0)), 0.0, 1.0)
+        y1 = _clamp(float(bbox.get("y1", 0.0)), 0.0, 1.0)
+        x2 = _clamp(float(bbox.get("x2", 0.0)), 0.0, 1.0)
+        y2 = _clamp(float(bbox.get("y2", 0.0)), 0.0, 1.0)
+
+        if x2 <= x1 or y2 <= y1:
+            continue
+
+        detections.append(
+            {
+                "label": class_name.upper(),
+                "confidence": round(float(detection.get("confidence", 0.0)), 4),
+                "bbox": [
+                    round(x1, 6),
+                    round(y1, 6),
+                    round(x2 - x1, 6),
+                    round(y2 - y1, 6),
+                ],
+            }
+        )
+
+    fps = round(1000 / elapsed_ms, 1) if elapsed_ms > 0 else 0
+    return {
+        "inference_ms": round(elapsed_ms, 1),
+        "fps": fps,
+        "detections": detections,
+    }
+
+
+def _unavailable_model_result(model_key):
+    return {
+        "inference_ms": 0,
+        "fps": 0,
+        "detections": [],
+        "status": "unavailable",
+        "message": f"{MODEL_DISPLAY_NAMES[model_key]} 서버는 아직 연결되지 않았습니다.",
+    }
+
+
+def _clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))

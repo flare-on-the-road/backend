@@ -13,11 +13,11 @@ VALID_MODEL_KEYS = {"rt-detr", "yolov8", "yolov11"}
 @jwt_required()
 def detect():
     """
-    화재/연기 탐지 모델 비교 (Mock)
+    화재/연기 탐지 모델 비교
     ---
     tags:
       - AI Lab
-    summary: 선택한 모델들의 탐지 결과 비교 (Mock 데이터, threshold 필터링 적용)
+    summary: 선택한 모델들의 탐지 결과 비교 (RT-DETR은 Vision FastAPI 서버 호출)
     security:
       - Bearer: []
     parameters:
@@ -79,5 +79,10 @@ def detect():
     if errors:
         raise ValidationError(errors)
 
-    results = ai_lab_service.detect(image_key, models, float(threshold))
+    results = ai_lab_service.detect(
+        image_key=image_key,
+        image_base64=image_base64,
+        models=models,
+        threshold=float(threshold),
+    )
     return jsonify({"results": results})

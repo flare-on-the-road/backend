@@ -10,6 +10,7 @@ class ErrorCode:
     VALIDATION_ERROR = "VALIDATION_ERROR"
     MAX_DEPTH_EXCEEDED = "MAX_DEPTH_EXCEEDED"
     INVALID_PARENT = "INVALID_PARENT"
+    VISION_API_UNAVAILABLE = "VISION_API_UNAVAILABLE"
 
 
 class ApiError(Exception):
@@ -60,6 +61,11 @@ class MaxDepthExceededError(ApiError):
 class InvalidParentError(ApiError):
     def __init__(self, message="유효하지 않은 부모 댓글입니다."):
         super().__init__(ErrorCode.INVALID_PARENT, message, 400)
+
+
+class VisionApiUnavailableError(ApiError):
+    def __init__(self, message="Vision 모델 서버를 사용할 수 없습니다.", details=None):
+        super().__init__(ErrorCode.VISION_API_UNAVAILABLE, message, 503, details)
 
 
 def register_error_handlers(app):
