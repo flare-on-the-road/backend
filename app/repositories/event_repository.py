@@ -57,6 +57,19 @@ def find_by_id(event_id: int) -> Optional[Event]:
     return db.session.get(Event, event_id)
 
 
+def find_confirmed_fire_alerts(after_id: Optional[int] = None, limit: int = 20):
+    q = select(Event).where(Event.is_fire.is_(True))
+
+    if after_id is not None:
+        q = q.where(Event.id > after_id)
+        q = q.order_by(Event.id.asc()).limit(limit)
+        return db.session.execute(q).scalars().all()
+
+    q = q.order_by(Event.id.desc()).limit(limit)
+    rows = db.session.execute(q).scalars().all()
+    return list(reversed(rows))
+
+
 def update_vlm_result(event_id: int, is_fire: bool, vlm_reason: Optional[str]) -> Optional[Event]:
     event = db.session.get(Event, event_id)
     if event is None:

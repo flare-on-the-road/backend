@@ -75,6 +75,16 @@ def get_event(event_id: int) -> dict:
     return _with_snapshot_url(event.to_dict())
 
 
+def list_fire_alerts(after_id: Optional[int] = None, size: int = 20) -> dict:
+    size = min(max(size or DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
+    rows = event_repository.find_confirmed_fire_alerts(after_id=after_id, limit=size)
+
+    return {
+        "events": [_with_snapshot_url(r.to_dict()) for r in rows],
+        "latestId": rows[-1].id if rows else after_id,
+    }
+
+
 def patch_event_vlm(event_id: int, body: dict) -> dict:
     if "is_fire" not in body:
         raise ValidationError("is_fire 필드가 필요합니다")

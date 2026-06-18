@@ -159,6 +159,38 @@ def get_event(event_id):
     return jsonify(result)
 
 
+@event_bp.get("/fire-alerts")
+@jwt_required()
+def list_fire_alerts():
+    """
+    확정 화재 알림 조회
+    ---
+    tags:
+      - Events
+    summary: VLM이 화재로 확정한 이벤트를 알림용으로 조회
+    security:
+      - Bearer: []
+    parameters:
+      - in: query
+        name: after_id
+        type: integer
+        description: 이 ID 이후의 확정 화재 이벤트만 조회
+      - in: query
+        name: size
+        type: integer
+        default: 20
+    responses:
+      200:
+        description: 확정 화재 알림 목록
+      401:
+        description: 인증 필요 (AUTH_REQUIRED)
+    """
+    after_id = request.args.get("after_id", type=int)
+    size = request.args.get("size", default=20, type=int)
+    result = event_service.list_fire_alerts(after_id=after_id, size=size)
+    return jsonify(result)
+
+
 @event_bp.patch("/<int:event_id>")
 def patch_event(event_id):
     """

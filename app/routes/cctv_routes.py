@@ -24,6 +24,17 @@ def list_cctvs():
         return fail(str(e) or type(e).__name__, 502)
 
 
+@cctv_bp.get("/monitored")
+def list_monitored_cctvs():
+    try:
+        result = cctv_service.get_monitored_cctvs()
+        return success(result, "관제 CCTV 목록 조회 성공")
+    except ValueError as e:
+        return fail(str(e), 400)
+    except Exception as e:
+        return fail(str(e) or type(e).__name__, 502)
+
+
 def _float_arg(name):
     value = request.args.get(name)
 
