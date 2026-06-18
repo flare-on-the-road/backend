@@ -1,6 +1,9 @@
 # Created by https://www.toptal.com/developers/gitignore/api/python,flask,pycharm+all,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,flask,pycharm+all,visualstudiocode
 
+### local scripts ###
+clear_events.py
+
 ### Flask ###
 instance/*
 !instance/.gitignore
