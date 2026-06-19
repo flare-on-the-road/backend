@@ -57,9 +57,14 @@ def detect():
     body = request.get_json(silent=True) or {}
 
     models = body.get("models")
-    image_base64 = body.get("image_base64")
-    image_key = body.get("image_key")
+    image_base64 = body.get("image_base64") or body.get("imageBase64")
+    image_key = body.get("image_key") or body.get("imageKey")
     threshold = body.get("threshold", 0.30)
+
+    if isinstance(image_base64, str):
+        image_base64 = image_base64.strip()
+    if isinstance(image_key, str):
+        image_key = image_key.strip()
 
     errors = {}
 
