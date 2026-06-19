@@ -166,6 +166,43 @@ def test_ai_lab_detect_accepts_camel_case_image_key(client, app, user_headers, m
     assert calls[0]["files"]["image"][1] == b"fake-sample-image-bytes"
 
 
+def test_ai_lab_detect_finds_sample_when_config_points_to_ai_lab_dir(
+    client,
+    app,
+    user_headers,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+
+    ai_lab_dir = tmp_path / "ai-lab"
+    sample_dir = ai_lab_dir / "samples"
+    sample_dir.mkdir(parents=True)
+    (sample_dir / "sample_1.png").write_bytes(b"fake-sample-image-bytes")
+
+    app.config["VISION_API_URL"] = "http://vision-api:8000"
+    app.config["VISION_SAMPLE_IMAGE_DIR"] = str(ai_lab_dir)
+
+    def fake_post(url, files, data, timeout):
+        calls.append({"url": url, "files": files, "data": data, "timeout": timeout})
+        return FakeVisionResponse()
+
+    monkeypatch.setattr("app.services.ai_lab_service.requests.post", fake_post)
+
+    response = client.post(
+        "/api/ai-lab/detect",
+        json={
+            "models": ["rt-detr"],
+            "threshold": 0.3,
+            "image_key": "sample_1",
+        },
+        headers=user_headers,
+    )
+
+    assert response.status_code == 200
+    assert calls[0]["files"]["image"][1] == b"fake-sample-image-bytes"
+
+
 def test_ai_lab_detect_requires_vision_api_url(client, user_headers):
     image_base64 = base64.b64encode(b"fake-image-bytes").decode()
     response = client.post(

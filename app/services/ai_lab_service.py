@@ -39,7 +39,13 @@ def _resolve_image_bytes(image_key, image_base64):
 
     sample_path = _find_sample_image(image_key)
     if sample_path is None:
-        raise ValidationError({"image_key": "샘플 이미지를 찾을 수 없습니다."})
+        searched_dirs = [str(path) for path in _sample_image_dirs()]
+        raise ValidationError(
+            {
+                "image_key": "샘플 이미지를 찾을 수 없습니다.",
+                "searched_dirs": ", ".join(searched_dirs),
+            }
+        )
 
     return sample_path.read_bytes()
 
@@ -48,13 +54,38 @@ def _find_sample_image(image_key):
     if not image_key or "/" in image_key or "\\" in image_key or ".." in image_key:
         return None
 
-    sample_dir = Path(current_app.config["VISION_SAMPLE_IMAGE_DIR"])
-    for extension in SAMPLE_EXTENSIONS:
-        candidate = sample_dir / f"{image_key}.{extension}"
-        if candidate.is_file():
-            return candidate
+    for sample_dir in _sample_image_dirs():
+        for extension in SAMPLE_EXTENSIONS:
+            candidate = sample_dir / f"{image_key}.{extension}"
+            if candidate.is_file():
+                return candidate
 
     return None
+
+
+def _sample_image_dirs():
+    configured_dir = Path(current_app.config["VISION_SAMPLE_IMAGE_DIR"]).expanduser()
+    project_root = Path(__file__).resolve().parents[3]
+
+    candidates = [
+        configured_dir,
+        configured_dir / "samples",
+        project_root / "frontend" / "public" / "ai-lab" / "samples",
+        project_root / "frontend" / "public" / "ai-lab",
+        Path.cwd() / "frontend" / "public" / "ai-lab" / "samples",
+        Path.cwd() / "frontend" / "public" / "ai-lab",
+    ]
+
+    seen = set()
+    unique_candidates = []
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_candidates.append(resolved)
+
+    return unique_candidates
 
 
 def _call_vision_api(image_bytes, model_key, confidence):
