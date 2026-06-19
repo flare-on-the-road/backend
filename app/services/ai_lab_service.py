@@ -9,12 +9,6 @@ from flask import current_app
 from app.common.errors import ValidationError, VisionApiUnavailableError
 
 
-MODEL_DISPLAY_NAMES = {
-    "rt-detr": "RT-DETRv2",
-    "yolov8": "YOLOv8",
-    "yolov11": "YOLOv11",
-}
-
 SAMPLE_EXTENSIONS = ("jpg", "jpeg", "png")
 
 
@@ -24,12 +18,9 @@ def detect(image_key, image_base64, models, threshold):
     results = {}
 
     for model_key in models:
-        if model_key != "rt-detr":
-            results[model_key] = _unavailable_model_result(model_key)
-            continue
-
         raw_result, elapsed_ms = _call_vision_api(
             image_bytes=image_bytes,
+            model_key=model_key,
             confidence=threshold,
         )
         results[model_key] = _to_model_result(raw_result, elapsed_ms)
@@ -66,7 +57,7 @@ def _find_sample_image(image_key):
     return None
 
 
-def _call_vision_api(image_bytes, confidence):
+def _call_vision_api(image_bytes, model_key, confidence):
     base_url = current_app.config.get("VISION_API_URL", "").rstrip("/")
     timeout = current_app.config.get("VISION_API_TIMEOUT_SECONDS", 30)
 
@@ -80,7 +71,11 @@ def _call_vision_api(image_bytes, confidence):
         response = requests.post(
             f"{base_url}/predict",
             files={"image": ("frame.jpg", image_bytes, "image/jpeg")},
-            data={"confidence": confidence, "max_detections": 100},
+            data={
+                "model_key": model_key,
+                "confidence": confidence,
+                "max_detections": 100,
+            },
             timeout=timeout,
         )
         response.raise_for_status()
@@ -126,16 +121,6 @@ def _to_model_result(raw_result: dict[str, Any], elapsed_ms: float):
         "inference_ms": round(elapsed_ms, 1),
         "fps": fps,
         "detections": detections,
-    }
-
-
-def _unavailable_model_result(model_key):
-    return {
-        "inference_ms": 0,
-        "fps": 0,
-        "detections": [],
-        "status": "unavailable",
-        "message": f"{MODEL_DISPLAY_NAMES[model_key]} 서버는 아직 연결되지 않았습니다.",
     }
 
 
