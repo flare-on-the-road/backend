@@ -32,6 +32,12 @@ class FakeVisionResponse:
         }
 
 
+class FakeSampleImageResponse:
+    def __init__(self, status_code=200, content=b"fake-remote-sample-image-bytes"):
+        self.status_code = status_code
+        self.content = content
+
+
 def test_ai_lab_detect_calls_vision_api(client, app, user_headers, monkeypatch):
     calls = []
 
@@ -201,6 +207,52 @@ def test_ai_lab_detect_finds_sample_when_config_points_to_ai_lab_dir(
 
     assert response.status_code == 200
     assert calls[0]["files"]["image"][1] == b"fake-sample-image-bytes"
+
+
+def test_ai_lab_detect_fetches_sample_from_frontend_url_when_file_is_missing(
+    client,
+    app,
+    user_headers,
+    monkeypatch,
+    tmp_path,
+):
+    calls = []
+    get_urls = []
+
+    app.config["VISION_API_URL"] = "http://vision-api:8000"
+    app.config["VISION_SAMPLE_IMAGE_DIR"] = str(tmp_path / "missing-samples")
+    app.config["FRONTEND_URL"] = "http://frontend:3000"
+
+    def fake_get(url, timeout):
+        get_urls.append(url)
+        if url.endswith("/sample_remote.png"):
+            return FakeSampleImageResponse()
+        return FakeSampleImageResponse(status_code=404, content=b"")
+
+    def fake_post(url, files, data, timeout):
+        calls.append({"url": url, "files": files, "data": data, "timeout": timeout})
+        return FakeVisionResponse()
+
+    monkeypatch.setattr("app.services.ai_lab_service.requests.get", fake_get)
+    monkeypatch.setattr("app.services.ai_lab_service.requests.post", fake_post)
+
+    response = client.post(
+        "/api/ai-lab/detect",
+        json={
+            "models": ["rt-detr"],
+            "threshold": 0.3,
+            "image_key": "sample_remote",
+        },
+        headers=user_headers,
+    )
+
+    assert response.status_code == 200
+    assert get_urls == [
+        "http://frontend:3000/ai-lab/samples/sample_remote.jpg",
+        "http://frontend:3000/ai-lab/samples/sample_remote.jpeg",
+        "http://frontend:3000/ai-lab/samples/sample_remote.png",
+    ]
+    assert calls[0]["files"]["image"][1] == b"fake-remote-sample-image-bytes"
 
 
 def test_ai_lab_detect_requires_vision_api_url(client, user_headers):

@@ -38,16 +38,22 @@ def _resolve_image_bytes(image_key, image_base64):
             raise ValidationError({"image_base64": "올바른 base64 이미지가 아닙니다."})
 
     sample_path = _find_sample_image(image_key)
-    if sample_path is None:
+    if sample_path is not None:
+        return sample_path.read_bytes()
+
+    sample_bytes = _fetch_sample_image(image_key)
+    if sample_bytes is None:
         searched_dirs = [str(path) for path in _sample_image_dirs()]
+        searched_urls = _sample_image_urls(image_key)
         raise ValidationError(
             {
                 "image_key": "샘플 이미지를 찾을 수 없습니다.",
                 "searched_dirs": ", ".join(searched_dirs),
+                "searched_urls": ", ".join(searched_urls),
             }
         )
 
-    return sample_path.read_bytes()
+    return sample_bytes
 
 
 def _find_sample_image(image_key):
@@ -86,6 +92,29 @@ def _sample_image_dirs():
         unique_candidates.append(resolved)
 
     return unique_candidates
+
+
+def _fetch_sample_image(image_key):
+    for url in _sample_image_urls(image_key):
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200 and response.content:
+                return response.content
+        except requests.exceptions.RequestException:
+            continue
+
+    return None
+
+
+def _sample_image_urls(image_key):
+    frontend_url = current_app.config.get("FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        return []
+
+    return [
+        f"{frontend_url}/ai-lab/samples/{image_key}.{extension}"
+        for extension in SAMPLE_EXTENSIONS
+    ]
 
 
 def _call_vision_api(image_bytes, model_key, confidence):
