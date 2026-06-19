@@ -32,6 +32,14 @@ class FakeVisionResponse:
         }
 
 
+class FakeNonJsonVisionResponse:
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        raise ValueError("not json")
+
+
 class FakeSampleImageResponse:
     def __init__(self, status_code=200, content=b"fake-remote-sample-image-bytes"):
         self.status_code = status_code
@@ -269,3 +277,33 @@ def test_ai_lab_detect_requires_vision_api_url(client, user_headers):
 
     assert response.status_code == 503
     assert response.get_json()["error"]["code"] == "VISION_API_UNAVAILABLE"
+
+
+def test_ai_lab_detect_handles_non_json_vision_response(
+    client,
+    app,
+    user_headers,
+    monkeypatch,
+):
+    app.config["VISION_API_URL"] = "http://vision-api:8000"
+
+    def fake_post(url, files, data, timeout):
+        return FakeNonJsonVisionResponse()
+
+    monkeypatch.setattr("app.services.ai_lab_service.requests.post", fake_post)
+
+    image_base64 = base64.b64encode(b"fake-image-bytes").decode()
+    response = client.post(
+        "/api/ai-lab/detect",
+        json={
+            "models": ["rt-detr"],
+            "threshold": 0.3,
+            "image_base64": image_base64,
+        },
+        headers=user_headers,
+    )
+
+    assert response.status_code == 503
+    payload = response.get_json()
+    assert payload["error"]["code"] == "VISION_API_UNAVAILABLE"
+    assert "JSON이 아닌 응답" in payload["error"]["details"]["reason"]

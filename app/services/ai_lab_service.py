@@ -139,22 +139,44 @@ def _call_vision_api(image_bytes, model_key, confidence):
             timeout=timeout,
         )
         response.raise_for_status()
+        raw_result = response.json()
     except requests.exceptions.RequestException as exc:
         raise VisionApiUnavailableError(details={"reason": str(exc)})
+    except ValueError:
+        raise VisionApiUnavailableError(
+            details={
+                "reason": "Vision 모델 서버가 JSON이 아닌 응답을 반환했습니다.",
+                "model_key": model_key,
+            }
+        )
+
+    if not isinstance(raw_result, dict):
+        raise VisionApiUnavailableError(
+            details={
+                "reason": "Vision 모델 서버 응답 형식이 올바르지 않습니다.",
+                "model_key": model_key,
+            }
+        )
 
     elapsed_ms = (time.perf_counter() - start) * 1000
-    return response.json(), elapsed_ms
+    return raw_result, elapsed_ms
 
 
 def _to_model_result(raw_result: dict[str, Any], elapsed_ms: float):
     detections = []
 
     for detection in raw_result.get("detections", []):
+        if not isinstance(detection, dict):
+            continue
+
         class_name = detection.get("class_name", "")
         if class_name not in {"fire", "smoke"}:
             continue
 
         bbox = detection.get("bbox_normalized", {})
+        if not isinstance(bbox, dict):
+            continue
+
         x1 = _clamp(float(bbox.get("x1", 0.0)), 0.0, 1.0)
         y1 = _clamp(float(bbox.get("y1", 0.0)), 0.0, 1.0)
         x2 = _clamp(float(bbox.get("x2", 0.0)), 0.0, 1.0)

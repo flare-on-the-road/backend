@@ -1,4 +1,5 @@
-from flask import jsonify
+from flask import current_app, jsonify, request
+from werkzeug.exceptions import HTTPException
 
 
 class ErrorCode:
@@ -11,6 +12,7 @@ class ErrorCode:
     MAX_DEPTH_EXCEEDED = "MAX_DEPTH_EXCEEDED"
     INVALID_PARENT = "INVALID_PARENT"
     VISION_API_UNAVAILABLE = "VISION_API_UNAVAILABLE"
+    INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR"
 
 
 class ApiError(Exception):
@@ -72,3 +74,20 @@ def register_error_handlers(app):
     @app.errorhandler(ApiError)
     def handle_api_error(err):
         return err.to_response()
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(err):
+        if isinstance(err, HTTPException):
+            return err
+
+        current_app.logger.exception("Unhandled exception", exc_info=err)
+        if request.path.startswith("/api/"):
+            return jsonify(
+                {
+                    "error": {
+                        "code": ErrorCode.INTERNAL_SERVER_ERROR,
+                        "message": "서버 처리 중 오류가 발생했습니다.",
+                    }
+                }
+            ), 500
+        raise err
