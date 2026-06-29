@@ -23,15 +23,12 @@ class Event(db.Model):
 
     detected_at = db.Column(db.DateTime, nullable=False)
 
-    risk_score = db.Column(db.Integer, nullable=False, default=0)
-    risk_candidate = db.Column(db.Boolean, nullable=False, default=True)
-
     # VLM 2차 판단 결과 (미구현 시 NULL)
     is_fire = db.Column(db.Boolean, nullable=True)
     vlm_reason = db.Column(db.Text, nullable=True)
 
-    # RT-DETRv2 탐지 클래스 목록 (JSON array: ["fire", "smoke"])
-    detected_classes = db.Column(db.JSON, nullable=False, default=list)
+    # RT-DETRv2 탐지 결과 (JSON array: [{"label": "fire", "confidence": 0.75, "bbox": [x1,y1,x2,y2]}])
+    detections = db.Column(db.JSON, nullable=False, default=list)
 
     # Cloudflare R2 키 (예: "raw/20260615_120000_고덕터널.jpg")
     snapshot_key = db.Column(db.String(500), nullable=True)
@@ -45,11 +42,9 @@ class Event(db.Model):
             "cctvName": self.cctv_name,
             "locationName": self.location_name,
             "detectedAt": self.detected_at.isoformat() if self.detected_at else None,
-            "riskScore": self.risk_score,
-            "riskCandidate": self.risk_candidate,
             "isFire": self.is_fire,
             "vlmReason": self.vlm_reason,
-            "detectedClasses": self.detected_classes or [],
+            "detections": self.detections or [],
             "snapshotKey": self.snapshot_key,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
         }

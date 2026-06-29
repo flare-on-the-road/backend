@@ -38,23 +38,17 @@ def create_event():
             detected_at:
               type: string
               example: "2026-06-15T12:00:00+09:00"
-            risk_score:
-              type: integer
-              example: 87
-            risk_candidate:
-              type: boolean
-              example: true
             is_fire:
               type: boolean
               example: null
             vlm_reason:
               type: string
               example: null
-            detected_classes:
+            detections:
               type: array
               items:
-                type: string
-              example: ["fire", "smoke"]
+                type: object
+              example: [{"label": "fire", "confidence": 0.75, "bbox": [120, 80, 340, 260]}]
             snapshot_key:
               type: string
               example: "raw/20260615_120000_고덕터널.jpg"

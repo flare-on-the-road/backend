@@ -25,11 +25,9 @@ def create_event(body: dict) -> dict:
         "cctv_name": body["cctv_name"],
         "location_name": body["location_name"],
         "detected_at": detected_at,
-        "risk_score": int(body.get("risk_score") or 0),
-        "risk_candidate": bool(body.get("risk_candidate", True)),
         "is_fire": body.get("is_fire"),
         "vlm_reason": body.get("vlm_reason"),
-        "detected_classes": body.get("detected_classes") or [],
+        "detections": body.get("detections") or [],
         "snapshot_key": body.get("snapshot_key"),
     })
 

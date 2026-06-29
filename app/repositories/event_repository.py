@@ -13,11 +13,9 @@ def create(data: dict) -> Event:
         cctv_name=data["cctv_name"],
         location_name=data["location_name"],
         detected_at=data["detected_at"],
-        risk_score=data.get("risk_score", 0),
-        risk_candidate=data.get("risk_candidate", True),
         is_fire=data.get("is_fire"),
         vlm_reason=data.get("vlm_reason"),
-        detected_classes=data.get("detected_classes", []),
+        detections=data.get("detections", []),
         snapshot_key=data.get("snapshot_key"),
     )
     db.session.add(event)
