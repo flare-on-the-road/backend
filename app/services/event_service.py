@@ -26,7 +26,7 @@ def create_event(body: dict) -> dict:
         "location_name": body["location_name"],
         "detected_at": detected_at,
         "is_fire": body.get("is_fire"),
-        "vlm_reason": body.get("vlm_reason"),
+        "vlm_results": body.get("vlm_results"),
         "detections": body.get("detections") or [],
         "snapshot_key": body.get("snapshot_key"),
     })
@@ -84,14 +84,18 @@ def list_fire_alerts(after_id: Optional[int] = None, size: int = 20) -> dict:
 
 
 def patch_event_vlm(event_id: int, body: dict) -> dict:
-    if "is_fire" not in body:
-        raise ValidationError("is_fire 필드가 필요합니다")
-    is_fire = body["is_fire"]
-    if not isinstance(is_fire, bool):
-        raise ValidationError("is_fire는 boolean이어야 합니다")
-    vlm_reason = body.get("vlm_reason")
+    if "vlm_results" not in body:
+        raise ValidationError("vlm_results 필드가 필요합니다")
+    vlm_results = body["vlm_results"]
+    if not isinstance(vlm_results, list):
+        raise ValidationError("vlm_results는 배열이어야 합니다")
 
-    event = event_repository.update_vlm_result(event_id, is_fire, vlm_reason)
+    is_fire = any(
+        r.get("class_name") in ("fire", "smoke") and not r.get("is_false_positive")
+        for r in vlm_results
+    )
+
+    event = event_repository.update_vlm_result(event_id, is_fire, vlm_results)
     if event is None:
         raise EventNotFoundError()
     return _with_snapshot_url(event.to_dict())

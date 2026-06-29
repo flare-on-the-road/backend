@@ -14,7 +14,7 @@ def create(data: dict) -> Event:
         location_name=data["location_name"],
         detected_at=data["detected_at"],
         is_fire=data.get("is_fire"),
-        vlm_reason=data.get("vlm_reason"),
+        vlm_results=data.get("vlm_results"),
         detections=data.get("detections", []),
         snapshot_key=data.get("snapshot_key"),
     )
@@ -68,11 +68,11 @@ def find_confirmed_fire_alerts(after_id: Optional[int] = None, limit: int = 20):
     return list(reversed(rows))
 
 
-def update_vlm_result(event_id: int, is_fire: bool, vlm_reason: Optional[str]) -> Optional[Event]:
+def update_vlm_result(event_id: int, is_fire: bool, vlm_results: Optional[list]) -> Optional[Event]:
     event = db.session.get(Event, event_id)
     if event is None:
         return None
     event.is_fire = is_fire
-    event.vlm_reason = vlm_reason
+    event.vlm_results = vlm_results
     db.session.commit()
     return event

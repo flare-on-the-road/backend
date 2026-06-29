@@ -41,9 +41,11 @@ def create_event():
             is_fire:
               type: boolean
               example: null
-            vlm_reason:
-              type: string
-              example: null
+            vlm_results:
+              type: array
+              items:
+                type: object
+              example: []
             detections:
               type: array
               items:
@@ -204,14 +206,13 @@ def patch_event(event_id):
         schema:
           type: object
           required:
-            - is_fire
+            - vlm_results
           properties:
-            is_fire:
-              type: boolean
-              example: true
-            vlm_reason:
-              type: string
-              example: "차량 우측에서 회색 연기 지속 발생"
+            vlm_results:
+              type: array
+              items:
+                type: object
+              example: [{"class_name": "fire", "is_false_positive": false, "reason": "실제 화염 확인"}]
     responses:
       200:
         description: 업데이트 성공

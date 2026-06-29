@@ -23,11 +23,13 @@ class Event(db.Model):
 
     detected_at = db.Column(db.DateTime, nullable=False)
 
-    # VLM 2차 판단 결과 (미구현 시 NULL)
+    # VLM 2차 판단 결과
+    # is_fire: fire/smoke 중 오탐아님이 하나라도 있으면 True (파생값)
     is_fire = db.Column(db.Boolean, nullable=True)
-    vlm_reason = db.Column(db.Text, nullable=True)
+    # vlm_results: 항목별 오탐 여부 [{"class_name": str, "is_false_positive": bool, "reason": str}]
+    vlm_results = db.Column(db.JSON, nullable=True)
 
-    # RT-DETRv2 탐지 결과 (JSON array: [{"label": "fire", "confidence": 0.75, "bbox": [x1,y1,x2,y2]}])
+    # RT-DETRv2 탐지 결과 (JSON array: [{"label": "fire", "confidence": 0.75, "bbox": [...]}])
     detections = db.Column(db.JSON, nullable=False, default=list)
 
     # Cloudflare R2 키 (예: "raw/20260615_120000_고덕터널.jpg")
@@ -43,7 +45,7 @@ class Event(db.Model):
             "locationName": self.location_name,
             "detectedAt": self.detected_at.isoformat() if self.detected_at else None,
             "isFire": self.is_fire,
-            "vlmReason": self.vlm_reason,
+            "vlmResults": self.vlm_results or [],
             "detections": self.detections or [],
             "snapshotKey": self.snapshot_key,
             "createdAt": self.created_at.isoformat() if self.created_at else None,
