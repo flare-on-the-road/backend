@@ -90,9 +90,12 @@ def patch_event_vlm(event_id: int, body: dict) -> dict:
     if not isinstance(vlm_results, list):
         raise ValidationError("vlm_results는 배열이어야 합니다")
 
-    is_fire = any(
-        r.get("class_name") in ("fire", "smoke") and not r.get("is_false_positive")
-        for r in vlm_results
+    is_fire = (
+        None if not vlm_results else
+        any(
+            r.get("class_name") in ("fire", "smoke") and not r.get("is_false_positive")
+            for r in vlm_results
+        )
     )
 
     event = event_repository.update_vlm_result(event_id, is_fire, vlm_results)
