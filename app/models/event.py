@@ -8,7 +8,6 @@ class Event(db.Model):
     __table_args__ = (
         db.Index("ix_events_cctv_id_detected_at", "cctv_id", "detected_at"),
         db.Index("ix_events_detected_at", "detected_at"),
-        db.Index("ix_events_is_fire", "is_fire"),
     )
 
     id = db.Column(
@@ -23,10 +22,7 @@ class Event(db.Model):
 
     detected_at = db.Column(db.DateTime, nullable=False)
 
-    # VLM 2차 판단 결과
-    # is_fire: fire/smoke 중 오탐아님이 하나라도 있으면 True (파생값)
-    is_fire = db.Column(db.Boolean, nullable=True)
-    # vlm_results: 항목별 오탐 여부 [{"class_name": str, "is_false_positive": bool, "reason": str}]
+    # VLM 2차 판단 결과: 항목별 오탐 여부 [{"class_name": str, "is_false_positive": bool, "reason": str}]
     vlm_results = db.Column(db.JSON, nullable=True)
 
     # RT-DETRv2 탐지 결과 (JSON array: [{"label": "fire", "confidence": 0.75, "bbox": [...]}])
@@ -44,7 +40,6 @@ class Event(db.Model):
             "cctvName": self.cctv_name,
             "locationName": self.location_name,
             "detectedAt": self.detected_at.isoformat() if self.detected_at else None,
-            "isFire": self.is_fire,
             "vlmResults": self.vlm_results or [],
             "detections": self.detections or [],
             "snapshotKey": self.snapshot_key,

@@ -38,9 +38,6 @@ def create_event():
             detected_at:
               type: string
               example: "2026-06-15T12:00:00+09:00"
-            is_fire:
-              type: boolean
-              example: null
             vlm_results:
               type: array
               items:
@@ -89,10 +86,6 @@ def list_events():
         name: cctv_id
         type: string
         description: CCTV ID 필터 (예: goduck_tunnel)
-      - in: query
-        name: is_fire
-        type: boolean
-        description: 화재 확정 여부 필터
       - in: query
         name: date_from
         type: string

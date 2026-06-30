@@ -25,7 +25,6 @@ def create_event(body: dict) -> dict:
         "cctv_name": body["cctv_name"],
         "location_name": body["location_name"],
         "detected_at": detected_at,
-        "is_fire": body.get("is_fire"),
         "vlm_results": body.get("vlm_results"),
         "detections": body.get("detections") or [],
         "snapshot_key": body.get("snapshot_key"),
@@ -90,15 +89,7 @@ def patch_event_vlm(event_id: int, body: dict) -> dict:
     if not isinstance(vlm_results, list):
         raise ValidationError("vlm_results는 배열이어야 합니다")
 
-    is_fire = (
-        None if not vlm_results else
-        any(
-            r.get("class_name") in ("fire", "smoke") and not r.get("is_false_positive")
-            for r in vlm_results
-        )
-    )
-
-    event = event_repository.update_vlm_result(event_id, is_fire, vlm_results)
+    event = event_repository.update_vlm_result(event_id, vlm_results)
     if event is None:
         raise EventNotFoundError()
     return _with_snapshot_url(event.to_dict())
