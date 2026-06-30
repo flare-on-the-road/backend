@@ -39,11 +39,14 @@ def find_list(
         fire_confirmed = text(
             "JSON_OVERLAPS(JSON_EXTRACT(vlm_results, '$[*].is_false_positive'), JSON_ARRAY(false)) = 1"
         )
+        fire_not_confirmed = text(
+            "NOT (JSON_OVERLAPS(JSON_EXTRACT(vlm_results, '$[*].is_false_positive'), JSON_ARRAY(false)) = 1)"
+        )
         if is_fire:
             q = q.where(Event.vlm_results.isnot(None)).where(fire_confirmed)
         else:
             q = q.where(
-                (Event.vlm_results.is_(None)) | ~fire_confirmed
+                (Event.vlm_results.is_(None)) | fire_not_confirmed
             )
     if date_from:
         q = q.where(Event.detected_at >= date_from)
