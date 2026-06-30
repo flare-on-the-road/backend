@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from app.extensions import db
 
+KST = timezone(timedelta(hours=9))
 
 class Event(db.Model):
     __tablename__ = "events"
@@ -31,7 +32,7 @@ class Event(db.Model):
     # Cloudflare R2 키 (예: "raw/20260615_120000_고덕터널.jpg")
     snapshot_key = db.Column(db.String(500), nullable=True)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc).astimezone(KST).isoformat())
 
     def to_dict(self):
         return {
