@@ -11,9 +11,9 @@ DEFAULT_BOUNDS = {
 
 MONITORED_CCTV_LOCATIONS = [
     {
-        "id": "goduck_tunnel",
-        "displayName": "[세종] 고덕터널",
-        "locationName": "고덕터널",
+        "id": "goduck_tunnel_1",
+        "displayName": "[세종] 고덕터널(세종12)",
+        "locationName": "고덕터널(세종12)",
         "searchNames": ["고덕터널(세종 12)", "세종 12)"],
         "searchRegions": [{"lat": 37.5472, "lon": 127.1562, "delta": 0.05}],
     },
@@ -32,18 +32,18 @@ MONITORED_CCTV_LOCATIONS = [
         "searchRegions": [{"lat": 37.2816, "lon": 127.2507, "delta": 0.05}],
     },
     {
-        "id": "gwanggyo_tunnel",
-        "displayName": "[영동선] 광교터널",
-        "locationName": "광교터널",
-        "searchNames": ["[인천1]광교터널(인천1 1 고정)", "인천1 1 고정"],
-        "searchRegions": [{"lat": 37.306575, "lon": 127.037347, "delta": 0.05}],
+        "id": "goduck_tunnel_2",
+        "displayName": "[세종포천선] 고덕터널(방아다리)",
+        "locationName": "고덕터널(방아다리)",
+        "searchNames": ["고덕터널", "방아다리터널"],
+        "searchRegions": [{"lat": 37.5485, "lon": 127.1682, "delta": 0.05}],
     },
     {
-        "id": "maseong_tunnel",
-        "displayName": "[영동선] 마성터널(인천)",
-        "locationName": "마성터널",
-        "searchNames": ["[인천1]마성터널(인천1 4)", "인천1 4"],
-        "searchRegions": [{"lat": 37.285983, "lon": 127.165356, "delta": 0.05}],
+        "id": "dallaenae_2",
+        "displayName": "[경부선] 달래내2",
+        "locationName": "달래내고개",
+        "searchNames": ["달래내2", "달래내"],
+        "searchRegions": [{"lat": 37.4208, "lon": 127.0545, "delta": 0.05}],
     },
 ]
 
