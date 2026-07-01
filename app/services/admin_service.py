@@ -10,7 +10,7 @@ from app.models.admin_access_request import AdminAccessRequest
 from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
-from app.services import comment_service
+from app.services import comment_service, visit_service
 
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE_SIZE = 50
@@ -43,6 +43,8 @@ def get_summary():
         )
     )
     open_inquiries = _count(_open_inquiry_count_stmt())
+    total_visitors = visit_service.count_total_visitors()
+    today_visitors = visit_service.count_today_visitors()
 
     board_counts = {
         board_type: _count(
@@ -71,6 +73,8 @@ def get_summary():
             "hidden_posts": hidden_posts,
             "hidden_comments": hidden_comments,
             "open_inquiries": open_inquiries,
+            "total_visitors": total_visitors,
+            "today_visitors": today_visitors,
         },
         "board_counts": board_counts,
         "latest_inquiries": latest_inquiries,

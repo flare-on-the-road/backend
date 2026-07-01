@@ -81,3 +81,31 @@ def test_admin_viewer_can_read_admin_board_but_cannot_manage_users_or_posts(
     assert member_row["email"] == "me****@example.com"
     assert member_row["phone"] == "010-****-5678"
     assert hide_res.status_code == 403
+
+
+def test_visit_tracking_counts_daily_unique_visitors(client, admin_headers):
+    first = client.post(
+        "/api/visits",
+        json={"visitorKey": "browser-1", "path": "/"},
+    )
+    duplicate = client.post(
+        "/api/visits",
+        json={"visitorKey": "browser-1", "path": "/overview"},
+    )
+    second = client.post(
+        "/api/visits",
+        json={"visitorKey": "browser-2", "path": "/login"},
+    )
+
+    assert first.status_code == 200
+    assert first.get_json()["recorded"] is True
+    assert duplicate.status_code == 200
+    assert duplicate.get_json()["recorded"] is False
+    assert second.status_code == 200
+    assert second.get_json()["recorded"] is True
+
+    summary = client.get("/api/admin/summary", headers=admin_headers)
+    assert summary.status_code == 200
+    metrics = summary.get_json()["metrics"]
+    assert metrics["today_visitors"] == 2
+    assert metrics["total_visitors"] == 2
