@@ -32,7 +32,12 @@ class Event(db.Model):
     # Cloudflare R2 키 (예: "raw/20260615_120000_고덕터널.jpg")
     snapshot_key = db.Column(db.String(500), nullable=True)
 
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now(timezone.utc).astimezone(KST).isoformat())
+    # 매 INSERT마다 현재 KST 시각(naive)으로 기록 (detected_at 저장 방식과 일관)
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(KST).replace(tzinfo=None),
+    )
 
     def to_dict(self):
         return {
