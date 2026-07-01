@@ -5,6 +5,7 @@ from app.models.comment import Comment
 from app.models.post_like import PostLike
 from app.models.file import File
 from app.models.event import Event
+from app.models.admin_access_request import AdminAccessRequest
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "PostLike",
     "File",
     "Event",
+    "AdminAccessRequest",
 ]

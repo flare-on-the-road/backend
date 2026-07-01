@@ -1,10 +1,12 @@
 import re
+from datetime import datetime
 
 from sqlalchemy import case, func, or_, select
 
-from app.common.constants import AuthProvider, PostBoardType, UserRole
+from app.common.constants import AdminAccessRequestStatus, AuthProvider, PostBoardType, UserRole
 from app.common.errors import ForbiddenError, ValidationError
 from app.extensions import db
+from app.models.admin_access_request import AdminAccessRequest
 from app.models.comment import Comment
 from app.models.post import Post
 from app.models.user import User
@@ -12,7 +14,14 @@ from app.services import comment_service
 
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE_SIZE = 50
-ALLOWED_ROLES = {UserRole.ADMIN, UserRole.OPERATOR, UserRole.VIEWER}
+PUBLIC_ADMIN_VIEWER_EMAIL = "public-admin-viewer@flare.local"
+PUBLIC_ADMIN_VIEWER_PASSWORD = "PublicViewer123!"
+ALLOWED_ROLES = {
+    UserRole.ADMIN,
+    UserRole.ADMIN_VIEWER,
+    UserRole.OPERATOR,
+    UserRole.VIEWER,
+}
 ALLOWED_BOARD_TYPES = set(PostBoardType.ALL)
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -69,7 +78,42 @@ def get_summary():
     }
 
 
-def list_users(page=1, size=DEFAULT_PAGE_SIZE, keyword=None, role=None, active=None):
+def ensure_public_admin_viewer():
+    user = db.session.execute(
+        select(User).where(User.email == PUBLIC_ADMIN_VIEWER_EMAIL)
+    ).scalar_one_or_none()
+
+    if user is None:
+        user = User(
+            email=PUBLIC_ADMIN_VIEWER_EMAIL,
+            name="공개 관리자 관전자",
+            role=UserRole.ADMIN_VIEWER,
+            provider=AuthProvider.LOCAL,
+            department="Public",
+            is_active=True,
+        )
+        user.set_password(PUBLIC_ADMIN_VIEWER_PASSWORD)
+        db.session.add(user)
+    else:
+        user.name = user.name or "공개 관리자 관전자"
+        user.role = UserRole.ADMIN_VIEWER
+        user.provider = AuthProvider.LOCAL
+        user.is_active = True
+        if not user.password_hash:
+            user.set_password(PUBLIC_ADMIN_VIEWER_PASSWORD)
+
+    db.session.commit()
+    return _serialize_user(user)
+
+
+def list_users(
+    page=1,
+    size=DEFAULT_PAGE_SIZE,
+    keyword=None,
+    role=None,
+    active=None,
+    actor_role=None,
+):
     page, size = _normalize_page(page, size)
     keyword = (keyword or "").strip()
 
@@ -99,7 +143,102 @@ def list_users(page=1, size=DEFAULT_PAGE_SIZE, keyword=None, role=None, active=N
         .limit(size)
     ).scalars().all()
 
-    return _paginated([_serialize_user(user) for user in users], page, size, total_count, "users")
+    mask_sensitive = actor_role == UserRole.ADMIN_VIEWER
+    return _paginated(
+        [_serialize_user(user, mask_sensitive=mask_sensitive) for user in users],
+        page,
+        size,
+        total_count,
+        "users",
+    )
+
+
+def get_my_access_request(user_id):
+    request = _latest_access_request_for_user(user_id)
+    return _serialize_access_request(request) if request else None
+
+
+def create_access_request(user_id, reason=None):
+    user = db.session.get(User, user_id)
+    if user is None or not user.is_active:
+        raise ValidationError({"user_id": "사용자를 찾을 수 없습니다."})
+
+    if user.role in {UserRole.ADMIN, UserRole.ADMIN_VIEWER}:
+        raise ValidationError({"role": "이미 관리자 보드 권한이 있습니다."})
+
+    existing = db.session.execute(
+        select(AdminAccessRequest).where(
+            AdminAccessRequest.requester_id == user_id,
+            AdminAccessRequest.status == AdminAccessRequestStatus.PENDING,
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return _serialize_access_request(existing)
+
+    request = AdminAccessRequest(
+        requester_id=user_id,
+        reason=_normalize_optional(reason),
+        status=AdminAccessRequestStatus.PENDING,
+    )
+    db.session.add(request)
+    db.session.commit()
+    return _serialize_access_request(request)
+
+
+def list_access_requests(page=1, size=DEFAULT_PAGE_SIZE, status=None):
+    page, size = _normalize_page(page, size)
+    stmt = select(AdminAccessRequest).join(
+        User,
+        User.id == AdminAccessRequest.requester_id,
+    )
+
+    if status in {
+        AdminAccessRequestStatus.PENDING,
+        AdminAccessRequestStatus.APPROVED,
+        AdminAccessRequestStatus.REJECTED,
+    }:
+        stmt = stmt.where(AdminAccessRequest.status == status)
+
+    total_count = _count(select(func.count()).select_from(stmt.subquery()))
+    requests = db.session.execute(
+        stmt.order_by(AdminAccessRequest.created_at.desc(), AdminAccessRequest.id.desc())
+        .offset((page - 1) * size)
+        .limit(size)
+    ).scalars().all()
+
+    return _paginated(
+        [_serialize_access_request(request) for request in requests],
+        page,
+        size,
+        total_count,
+        "requests",
+    )
+
+
+def review_access_request(request_id, status, reviewer_id):
+    if status not in {AdminAccessRequestStatus.APPROVED, AdminAccessRequestStatus.REJECTED}:
+        raise ValidationError({"status": "승인 또는 거절 상태만 처리할 수 있습니다."})
+
+    access_request = db.session.get(AdminAccessRequest, request_id)
+    if access_request is None:
+        raise ValidationError({"request_id": "권한 요청을 찾을 수 없습니다."})
+
+    if access_request.status != AdminAccessRequestStatus.PENDING:
+        raise ValidationError({"status": "이미 처리된 요청입니다."})
+
+    requester = db.session.get(User, access_request.requester_id)
+    if requester is None:
+        raise ValidationError({"requester_id": "요청자를 찾을 수 없습니다."})
+
+    access_request.status = status
+    access_request.reviewed_by = reviewer_id
+    access_request.reviewed_at = datetime.utcnow()
+
+    if status == AdminAccessRequestStatus.APPROVED:
+        requester.role = UserRole.ADMIN_VIEWER
+
+    db.session.commit()
+    return _serialize_access_request(access_request)
 
 
 def create_user(data):
@@ -411,18 +550,79 @@ def _open_inquiry_count_stmt():
     )
 
 
-def _serialize_user(user):
+def _serialize_user(user, mask_sensitive=False):
     return {
         "id": user.id,
-        "email": user.email,
+        "email": _mask_email(user.email) if mask_sensitive else user.email,
         "name": user.name,
         "role": user.role,
         "provider": user.provider,
         "department": user.department,
-        "phone": user.phone,
+        "phone": _mask_phone(user.phone) if mask_sensitive else user.phone,
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+    }
+
+
+def _mask_email(email):
+    if not email or "@" not in email:
+        return email
+
+    local, domain = email.split("@", 1)
+    if len(local) <= 2:
+        masked_local = local[:1] + "*"
+    else:
+        masked_local = local[:2] + ("*" * min(len(local) - 2, 6))
+
+    return f"{masked_local}@{domain}"
+
+
+def _mask_phone(phone):
+    if not phone:
+        return phone
+
+    digits = "".join(ch for ch in str(phone) if ch.isdigit())
+    if len(digits) < 7:
+        return "***"
+
+    if len(digits) >= 11:
+        return f"{digits[:3]}-****-{digits[-4:]}"
+
+    return f"{digits[:3]}-***-{digits[-4:]}"
+
+
+def _latest_access_request_for_user(user_id):
+    return db.session.execute(
+        select(AdminAccessRequest)
+        .where(AdminAccessRequest.requester_id == user_id)
+        .order_by(AdminAccessRequest.created_at.desc(), AdminAccessRequest.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _serialize_access_request(access_request):
+    requester = access_request.requester
+    reviewer = access_request.reviewer
+    return {
+        "id": access_request.id,
+        "requester_id": access_request.requester_id,
+        "requester_name": requester.name if requester else None,
+        "requester_email": requester.email if requester else None,
+        "requester_role": requester.role if requester else None,
+        "status": access_request.status,
+        "reason": access_request.reason,
+        "reviewed_by": access_request.reviewed_by,
+        "reviewer_name": reviewer.name if reviewer else None,
+        "reviewed_at": access_request.reviewed_at.isoformat()
+        if access_request.reviewed_at
+        else None,
+        "created_at": access_request.created_at.isoformat()
+        if access_request.created_at
+        else None,
+        "updated_at": access_request.updated_at.isoformat()
+        if access_request.updated_at
+        else None,
     }
 
 

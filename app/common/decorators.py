@@ -18,6 +18,20 @@ def admin_required(fn):
     return wrapper
 
 
+def admin_read_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        verify_jwt_in_request()
+        claims = get_jwt()
+
+        if claims.get("role") not in {UserRole.ADMIN, UserRole.ADMIN_VIEWER}:
+            return fail("관리자 보드 조회 권한이 필요합니다.", 403)
+
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
 def role_required(*roles):
     def decorator(fn):
         @wraps(fn)

@@ -1,7 +1,14 @@
 class UserRole:
     ADMIN = "admin"
+    ADMIN_VIEWER = "admin_viewer"
     OPERATOR = "operator"
     VIEWER = "viewer"
+
+
+class AdminAccessRequestStatus:
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
 class AuthProvider:

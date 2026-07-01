@@ -1,20 +1,20 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from app.common.decorators import admin_required
+from app.common.decorators import admin_read_required, admin_required
 from app.services import admin_service, post_service
 
 admin_bp = Blueprint("admin", __name__)
 
 
 @admin_bp.get("/summary")
-@admin_required
+@admin_read_required
 def get_admin_summary():
     return jsonify(admin_service.get_summary())
 
 
 @admin_bp.get("/users")
-@admin_required
+@admin_read_required
 def list_admin_users():
     result = admin_service.list_users(
         page=request.args.get("page", default=1, type=int),
@@ -22,6 +22,7 @@ def list_admin_users():
         keyword=request.args.get("keyword"),
         role=request.args.get("role"),
         active=request.args.get("active"),
+        actor_role=get_jwt().get("role"),
     )
     return jsonify(result)
 
@@ -88,7 +89,7 @@ def update_admin_user_active(user_id):
 
 
 @admin_bp.get("/posts")
-@admin_required
+@admin_read_required
 def list_admin_posts():
     result = admin_service.list_posts(
         page=request.args.get("page", default=1, type=int),
@@ -115,7 +116,7 @@ def unhide_admin_post(post_id):
 
 
 @admin_bp.get("/inquiries")
-@admin_required
+@admin_read_required
 def list_admin_inquiries():
     result = admin_service.list_inquiries(
         page=request.args.get("page", default=1, type=int),
@@ -136,3 +137,50 @@ def answer_admin_inquiry(post_id):
         content=body.get("content"),
     )
     return jsonify(result), 201
+
+
+@admin_bp.get("/access-requests/me")
+@jwt_required()
+def get_my_admin_access_request():
+    result = admin_service.get_my_access_request(int(get_jwt_identity()))
+    return jsonify({"request": result})
+
+
+@admin_bp.post("/access-requests")
+@jwt_required()
+def create_admin_access_request():
+    body = request.get_json() or {}
+    result = admin_service.create_access_request(
+        user_id=int(get_jwt_identity()),
+        reason=body.get("reason"),
+    )
+    return jsonify(result), 201
+
+
+@admin_bp.get("/access-requests")
+@admin_required
+def list_admin_access_requests():
+    result = admin_service.list_access_requests(
+        page=request.args.get("page", default=1, type=int),
+        size=request.args.get("size", default=10, type=int),
+        status=request.args.get("status"),
+    )
+    return jsonify(result)
+
+
+@admin_bp.patch("/access-requests/<int:request_id>")
+@admin_required
+def review_admin_access_request(request_id):
+    body = request.get_json() or {}
+    result = admin_service.review_access_request(
+        request_id=request_id,
+        status=body.get("status"),
+        reviewer_id=int(get_jwt_identity()),
+    )
+    return jsonify(result)
+
+
+@admin_bp.post("/public-viewer")
+@admin_required
+def ensure_public_admin_viewer():
+    return jsonify(admin_service.ensure_public_admin_viewer()), 201

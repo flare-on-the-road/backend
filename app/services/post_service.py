@@ -59,12 +59,12 @@ def get_post_detail(post_id, user_id, role):
 
     post = row.Post
     is_owner = post.author_id == user_id
-    is_admin = role == UserRole.ADMIN
+    can_read_admin_board = role in {UserRole.ADMIN, UserRole.ADMIN_VIEWER}
 
-    if post.is_hidden and not (is_owner or is_admin):
+    if post.is_hidden and not (is_owner or can_read_admin_board):
         raise ForbiddenError("가려진 게시물입니다.")
 
-    if post.board_type == PostBoardType.INQUIRY and not (is_owner or is_admin):
+    if post.board_type == PostBoardType.INQUIRY and not (is_owner or can_read_admin_board):
         raise ForbiddenError("본인 또는 관리자만 조회할 수 있습니다.")
 
     post_repository.increment_view_count(post)
