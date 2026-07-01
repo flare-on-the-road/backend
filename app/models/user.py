@@ -122,7 +122,6 @@ class User(db.Model):
                 profile_image_url = url_for(
                     "file.download_file",
                     file_id=self.profile_image_file.id,
-                    _external=True,
                 )
 
         return {
