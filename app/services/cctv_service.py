@@ -32,11 +32,11 @@ MONITORED_CCTV_LOCATIONS = [
         "searchRegions": [{"lat": 37.2816, "lon": 127.2507, "delta": 0.05}],
     },
     {
-        "id": "godeok_tunnel",
-        "displayName": "[세종포천선] 고덕터널",
-        "locationName": "고덕터널",
-        "searchNames": ["[세종] 고덕터널", "고덕터널", "세종 2"],
-        "searchRegions": [{"lat": 37.5436, "lon": 127.1685, "delta": 0.05}],
+        "id": "namhansanseong_tunnel",
+        "displayName": "[세종]남한산성터널(세종 25)",
+        "locationName": "세종포천선 남한산성터널 115.22K",
+        "searchNames": ["[세종]남한산성터널(세종 25)", "세종 25)"],
+        "searchRegions": [{"lat": 37.45828, "lon": 127.17415, "delta": 0.05}],
     },
     {
         "id": "dallaenae_2",
